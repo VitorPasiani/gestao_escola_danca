@@ -26,6 +26,51 @@ class Aluno:
         self.turmas.append(turma)
         print(f"Aluno {self.nome} matriculado na turma {turma}!")
 
-novo_aluno = Aluno(1, "Pasi", "123.456.789-00", "00.000.000-0", "Rua aaaaaa, nº aaaa, bairro aaaa, aaa/aa", "aaaaaa@aaaa.com", "(00) 00000-0000", "N/A", "01/01/2000")
+class Plano:
+    def __init__(self, id_plano, nome_plano, valor_base):
+        self.id_plano = id_plano
+        self.nome_plano = nome_plano
+        self.valor_base = valor_base
 
-print(f"Aluno criado: {novo_aluno.nome}")
+class Turma:
+    def __init__(self, id_turma, nome_turma, professor, horario, dias_semana, valor_mensal_base):
+        self.id_turma = id_turma
+        self.nome_turma = nome_turma
+        self.professor = professor
+        self.horario = horario
+        self.dias_semana = dias_semana
+        self.valor_mensal_base = valor_mensal_base
+
+from datetime import datetime
+
+class Pagamento:
+    def __init__(self, id_pagamento, aluno, turma, plano_contratado, mes_referencia, data_vencimento):
+        self.id_pagamento = id_pagamento
+        self.aluno = aluno
+        self.turma = turma  
+        self.plano_contratado = plano_contratado
+        self.mes_referencia = mes_referencia
+        self.data_vencimento = datetime.strptime(data_vencimento, "%d/%m/%Y")
+        self.valor_final = 0.0
+        self.status = "Pendente"
+
+    def calcular_pagamento(self, data_pagamento_str):
+        data_pagamento = datetime.strptime(data_pagamento_str, "%d/%m/%Y")
+        
+        # O valor base da turma é sempre o valor do plano "Mensal"
+        valor_base = self.turma.valor_mensal_base 
+
+        if data_pagamento > self.data_vencimento:
+            # REGRA: Perde o desconto do plano e paga Valor Base + 10%
+            self.valor_final = valor_base * 1.10
+            print(f"Atenção: Pagamento em atraso!")
+            print(f"O desconto do plano '{self.plano_contratado.nome_plano}' foi perdido.")
+            print(f"Valor calculado sobre a base (R$ {valor_base:.2f}) + 10% de multa.")
+        else:
+            # REGRA: Pagamento em dia, mantém o valor do plano contratado
+            self.valor_final = self.plano_contratado.valor_base
+            print(f"Pagamento em dia! Valor do plano '{self.plano_contratado.nome_plano}' aplicado.")
+
+        self.status = "Pago"
+        print(f"Valor Final: R$ {self.valor_final:.2f}")
+
