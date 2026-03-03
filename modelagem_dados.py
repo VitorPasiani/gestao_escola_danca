@@ -2,11 +2,12 @@
 # OBJETIVO: Sistema de gestão de alunos, turmas e financeiro.
 
 # ESTRUTURA DE DADOS PLANEJADA:
-# - Alunos: id, nome, cpf, rg, endereco, email, contato, responsavel, data de nascimento
-# - Turmas: id, nome_turma, professor, horario, dias_semana, id_plano
-# - Planos: id, nome_plano, valor_base
-# - Tipos_Desconto: id, nome_desconto, percentual
-# - Pagamentos: id, id_aluno, id_plano, id_desconto, data_vencimento, status
+# - Alunos: id_aluno, nome, cpf, rg, endereco, data_nascimento, email, contato, responsavel
+# - Turmas: id_turma, nome_turma, professor, horario, dias_semana, valor_mensal_base
+# - Planos: id_plano, nome_plano, percentual_desconto
+# - Pagamentos: id_pagamento, aluno, turma, plano_contratado, mes_referencia, data_vencimento
+
+from datetime import datetime
 
 class Aluno:
     def __init__(self, id_aluno, nome, cpf, rg, endereco, data_nascimento, email, contato, responsavel):
@@ -19,18 +20,21 @@ class Aluno:
         self.email = email
         self.contato = contato
         self.responsavel = responsavel
-        self.turmas = []  # Lista para armazenar as turmas em que o aluno está matriculado
-        self.plano = []  # Atributo para armazenar o plano do aluno
+        self.turmas = []  
+        self.plano_atual = None
+
+    def __repr__(self):
+        return f"Aluno({self.nome})"
 
     def adicionar_turma(self, turma):
         self.turmas.append(turma)
-        print(f"Aluno {self.nome} matriculado na turma {turma}!")
+        print(f"Aluno {self.nome} matriculado na turma {turma.nome_turma}!")
 
 class Plano:
-    def __init__(self, id_plano, nome_plano, valor_base):
+    def __init__(self, id_plano, nome_plano, percentual_desconto):
         self.id_plano = id_plano
         self.nome_plano = nome_plano
-        self.valor_base = valor_base
+        self.percentual_desconto = percentual_desconto
 
 class Turma:
     def __init__(self, id_turma, nome_turma, professor, horario, dias_semana, valor_mensal_base):
@@ -40,8 +44,6 @@ class Turma:
         self.horario = horario
         self.dias_semana = dias_semana
         self.valor_mensal_base = valor_mensal_base
-
-from datetime import datetime
 
 class Pagamento:
     def __init__(self, id_pagamento, aluno, turma, plano_contratado, mes_referencia, data_vencimento):
@@ -57,20 +59,28 @@ class Pagamento:
     def calcular_pagamento(self, data_pagamento_str):
         data_pagamento = datetime.strptime(data_pagamento_str, "%d/%m/%Y")
         
-        # O valor base da turma é sempre o valor do plano "Mensal"
-        valor_base = self.turma.valor_mensal_base 
+        # Valor cheio da turma específica (pode ser 125, 150, etc.)
+        valor_cheio = self.turma.valor_mensal_base 
+
+        # LÓGICA DO PLANO MISTO
+        # Se for Misto e tiver + de 1 turma, aplica o desconto do plano.
+        # Se for outro plano (Trimestral/Semestral), também aplica o respectivo percentual.
+        if self.plano_contratado.nome_plano == "Misto" and len(self.aluno.turmas) <= 1:
+            # Caso o plano seja Misto mas o aluno só tenha 1 turma, ele paga o valor cheio
+            valor_com_desconto = valor_cheio
+            msg_plano = "Plano Misto não aplicado (apenas 1 turma ativa)"
+        else:
+            desconto = valor_cheio * self.plano_contratado.percentual_desconto
+            valor_com_desconto = valor_cheio - desconto
+            msg_plano = f"Plano {self.plano_contratado.nome_plano} aplicado"
 
         if data_pagamento > self.data_vencimento:
-            # REGRA: Perde o desconto do plano e paga Valor Base + 10%
-            self.valor_final = valor_base * 1.10
-            print(f"Atenção: Pagamento em atraso!")
-            print(f"O desconto do plano '{self.plano_contratado.nome_plano}' foi perdido.")
-            print(f"Valor calculado sobre a base (R$ {valor_base:.2f}) + 10% de multa.")
+            # REGRA DE OURO: Atrasou? Base da Turma + 10%
+            self.valor_final = valor_cheio * 1.10
+            status_msg = f"ATRASO: Base R$ {valor_cheio:.2f} + 10% multa"
         else:
-            # REGRA: Pagamento em dia, mantém o valor do plano contratado
-            self.valor_final = self.plano_contratado.valor_base
-            print(f"Pagamento em dia! Valor do plano '{self.plano_contratado.nome_plano}' aplicado.")
+            self.valor_final = valor_com_desconto
+            status_msg = f"EM DIA: {msg_plano}"
 
         self.status = "Pago"
-        print(f"Valor Final: R$ {self.valor_final:.2f}")
-
+        print(f"[{self.mes_referencia}] {status_msg} | Total: R$ {self.valor_final:.2f}")
