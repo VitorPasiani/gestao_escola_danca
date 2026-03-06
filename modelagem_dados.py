@@ -119,7 +119,7 @@ class Evento:
         self.receitas = receitas
         self.despesas = despesas
 
-    def saldo_evento(self):
+    def saldo(self):
         return self.receitas - self.despesas
     
 class GestorFinanceiro:
@@ -185,7 +185,7 @@ class GestorFinanceiro:
         print(f"Despesas Fixas da Escola: R$ {self.despesas_fixas:.2f}")
         print(f"Lucro Operacional: R$ {lucro_operacional:.2f}")
 
-# 3. DIVISÃO SOCIETÁRIA
+        # 3. DIVISÃO SOCIETÁRIA
         print("\n--- DIVISÃO DE LUCROS (SÓCIAS) ---")
         valor_distribuir = lucro_operacional - self.retencao_caixa
 
