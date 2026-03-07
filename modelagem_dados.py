@@ -12,6 +12,8 @@
 
 from datetime import datetime
 
+import calendar
+
 class Aluno:
     def __init__(self, id_aluno, nome, cpf, rg, endereco, data_nascimento, email, contato, responsavel):
         self.id_aluno = id_aluno
@@ -59,6 +61,40 @@ class Turma:
         self.valor_mensal_base = valor_mensal_base
         self.tipo_gestao = tipo_gestao
 
+    # Essa função pertence à Turma normal!
+    def calcular_repasse(self, valor_pago):
+        if self.tipo_gestao == "Parceiro":
+            return valor_pago * 0.75  # 75% do valor vai para o professor parceiro
+        return 0.0  # Turma própria não tem repasse de locação
+
+class TurmaParticular:
+    def __init__(self, id_turma, aluno_nome, professor, cronograma, valor_por_aula=40.00):
+        self.id_turma = id_turma
+        self.nome_turma = f"Particular - {aluno_nome}"
+        self.professor = professor
+        self.cronograma = cronograma 
+        self.valor_por_aula = valor_por_aula
+        self.tipo_gestao = "Parceiro"
+
+    def calcular_repasse(self, valor_pago):
+        return valor_pago * 0.75
+
+    def calcular_aulas_no_mes(self, ano, mes):
+        mapa_dias = {
+            "Segunda": 0, "Terça": 1, "Quarta": 2, "Quinta": 3, 
+            "Sexta": 4, "Sábado": 5, "Domingo": 6
+        }
+        total_aulas = 0
+        calendario_mes = calendar.monthcalendar(ano, mes)
+        
+        for semana in calendario_mes:
+            for nome_dia, qtd_aulas in self.cronograma.items():
+                numero_do_dia = mapa_dias.get(nome_dia)
+                if numero_do_dia is not None and semana[numero_do_dia] != 0:
+                    total_aulas += qtd_aulas
+                    
+        return total_aulas
+
 # Função para calcular o repasse para o professor parceiro, caso a turma seja do tipo "Parceiro"
     def calcular_repasse(self, valor_pago):
         if self.tipo_gestao == "Parceiro":
@@ -67,7 +103,7 @@ class Turma:
 
 class Pagamento:
     def __init__(self, id_pagamento, aluno, turma, plano_contratado, mes_referencia, data_vencimento, 
-                 desconto_manual=0.0, taxa_maquininha=0.0):
+                 desconto_manual=0.0, tipo_desconto_manual="R$", taxa_maquininha=0.0):
         self.id_pagamento = id_pagamento
         self.aluno = aluno
         self.turma = turma  
@@ -75,9 +111,9 @@ class Pagamento:
         self.mes_referencia = mes_referencia
         self.data_vencimento = datetime.strptime(data_vencimento, "%d/%m/%Y")
         
-        # NOVOS CAMPOS
-        self.desconto_manual = desconto_manual  # Para bolsistas ou acordos
-        self.taxa_maquininha = taxa_maquininha  # Valor em R$ que a maquininha cobra
+        self.desconto_manual = desconto_manual  # Para bolsistas ou acordos (R$)
+        self.tipo_desconto_manual = tipo_desconto_manual  # Pode ser "R$" ou "%"
+        self.taxa_maquininha = taxa_maquininha  # Porcentagem da maquininha (ex: 0.03)
         
         self.valor_final = 0.0
         self.valor_repasse = 0.0
@@ -86,31 +122,66 @@ class Pagamento:
 
     def calcular_pagamento(self, data_pagamento_str):
         data_pagamento = datetime.strptime(data_pagamento_str, "%d/%m/%Y")
-        valor_cheio = self.turma.valor_mensal_base 
-
-        # Lógica de planos (Misto vs Outros)
-        if self.plano_contratado.nome_plano == "Misto" and len(self.aluno.turmas) <= 1:
-            valor_base_com_plano = valor_cheio
+        
+        # =======================================================
+        # 1. TURMA PARTICULAR VS TURMA NORMAL
+        # =======================================================
+        if isinstance(self.turma, TurmaParticular):
+            # Se for particular, descobre quantas aulas o mês tem
+            ano = self.data_vencimento.year
+            mes = self.data_vencimento.month
+            qtd_aulas = self.turma.calcular_aulas_no_mes(ano, mes)
+            
+            # Valor base passa a ser a quantidade de aulas x R$ 40
+            valor_cheio = self.turma.valor_por_aula * qtd_aulas
+            print(f"[Sistema] {qtd_aulas} aulas calculadas para {self.turma.nome_turma} em {mes:02d}/{ano}.")
         else:
-            desconto_plano = valor_cheio * self.plano_contratado.percentual_desconto
-            valor_base_com_plano = valor_cheio - desconto_plano
+            # Se for turma normal, puxa o valor fixo mensal
+            valor_cheio = self.turma.valor_mensal_base 
 
-        # Aplica o desconto manual (Bolsa/Condição especial)
-        valor_com_descontos = valor_base_com_plano - self.desconto_manual
+        # =======================================================
+        # 2. LÓGICA DE PLANOS E DESCONTOS (Regra do Bolsista)
+        # =======================================================
+        # VERIFICA SE É BOLSISTA (Tem desconto manual?)
+        if self.desconto_manual > 0:
+            
+            if self.tipo_desconto_manual == "%": # Se for porcentagem, calcula o valor a ser abatido com base no valor cheio da mensalidade
+                valor_abatido = valor_cheio * self.desconto_manual
+                valor_com_todos_descontos = valor_cheio - valor_abatido
+            else:
+                # Exemplo: desconto_manual = 50.00 (Desconto fixo de R$ 50,00)
+                valor_com_todos_descontos = valor_cheio - self.desconto_manual
 
+        else:
+            # SE NÃO É BOLSISTA, SEGUE A REGRA DOS PLANOS
+            if self.plano_contratado and self.plano_contratado.nome_plano == "Misto" and len(self.aluno.turmas) <= 1:
+                valor_com_todos_descontos = valor_cheio
+            elif self.plano_contratado:
+                desconto_plano = valor_cheio * self.plano_contratado.percentual_desconto
+                valor_com_todos_descontos = valor_cheio - desconto_plano
+            else:
+                valor_com_todos_descontos = valor_cheio
+
+        # REGRA DO ATRASO
         if data_pagamento > self.data_vencimento:
-            # Multa de 10% sobre o valor cheio da turma
+            # Multa de 10% sobre o valor cheio da turma (perde todos os descontos)
             self.valor_final = valor_cheio * 1.10
         else:
-            self.valor_final = valor_com_descontos
+            self.valor_final = valor_com_todos_descontos
 
-        # IMPORTANTE: A taxa da maquininha é uma despesa da escola, 
-        # então ela diminui o que sobra para a escola, mas não o que o aluno paga.
+        # =======================================================
+        # 3. DISTRIBUIÇÃO DO DINHEIRO E TAXAS
+        # =======================================================
         self.status = "Pago"
         
+        # Calcula o repasse (se houver)
         self.valor_repasse = self.turma.calcular_repasse(self.valor_final)
-        # O líquido da escola agora desconta a taxa da maquininha também!
-        self.valor_liquido_escola = self.valor_final - self.valor_repasse - self.taxa_maquininha
+        
+        # Calcula quanto a maquininha levou (Porcentagem em cima do que o aluno pagou)
+        desconto_banco = self.valor_final * self.taxa_maquininha
+        
+        # O líquido da escola é o que sobra tirando o professor e o banco
+        self.valor_liquido_escola = self.valor_final - self.valor_repasse - desconto_banco
 
 class Evento:
     def __init__ (self, id_evento, nome_evento, receitas=0.0, despesas=0.0):
@@ -123,20 +194,62 @@ class Evento:
         return self.receitas - self.despesas
     
 class GestorFinanceiro:
-    def __init__(self, mes_referencia, retencao_caixa, saldo_anterior=0.0):
+    def __init__(self, mes_referencia, retencao_caixa, saldo_principal=0.0, saldo_matriculas=0.0, saldo_avulsas=0.0):
         self.mes_referencia = mes_referencia
         self.retencao_caixa = retencao_caixa
-        self.saldo_anterior = saldo_anterior 
+
+        # Saldos dos 3 caixas para controle interno (não afetam o fechamento, mas ajudam a organizar as contas)
+        self.saldo_principal = saldo_principal
+        self.saldo_matriculas = saldo_matriculas
+        self.saldo_avulsas = saldo_avulsas
+
+        # HISTÓRICO DE SAQUES (Para saber com o que o dinheiro foi gasto)
+        self.historico_retiradas = {
+            "Principal": [],
+            "Matriculas": [],
+            "Avulsas": []
+        }
+
         self.pagamentos = []
         self.eventos = []
         self.despesas_fixas = 0.0
         self.extras = [] 
 
+    def registrar_matricula(self, aluno, valor=100.00):
+        self.saldo_matriculas += valor
+        print(f"Matrícula de {aluno.nome} registrada! +R$ {valor:.2f} no Caixa Matrículas.")
+
+    # Método para registrar saques do caixa, com descrição do motivo
+    def retirar_caixa_matriculas(self, valor, descricao):
+        if self.saldo_matriculas >= valor: # Verifica se há saldo suficiente antes de retirar
+            self.saldo_matriculas -= valor # Se sim, retira o valor do caixa de matrículas
+            # Anota no histórico o que foi comprado e quanto custou
+            self.historico_retiradas["Matriculas"].append((descricao, valor))
+            print(f"Saque [Matrículas]: -R$ {valor:.2f} ({descricao}). Saldo: R$ {self.saldo_matriculas:.2f}")
+        else:
+            print(f"Erro: Saldo insuficiente no Caixa Matrículas para comprar '{descricao}'.") # Caso tente retirar mais do que o saldo disponível, exibe uma mensagem de erro.
+
+    def retirar_caixa_avulsas(self, valor, descricao):
+        if self.saldo_avulsas >= valor:
+            self.saldo_avulsas -= valor
+            self.historico_retiradas["Avulsas"].append((descricao, valor))
+            print(f"Saque [Avulsas]: -R$ {valor:.2f} ({descricao}). Saldo: R$ {self.saldo_avulsas:.2f}")
+        else:
+            print(f"Erro: Saldo insuficiente no Caixa Avulsas para '{descricao}'.")
+
+    def retirar_caixa_principal(self, valor, descricao):
+        if self.saldo_principal >= valor:
+            self.saldo_principal -= valor
+            self.historico_retiradas["Principal"].append((descricao, valor))
+            print(f"Saque [Principal]: -R$ {valor:.2f} ({descricao}). Saldo: R$ {self.saldo_principal:.2f}")
+        else:
+            print(f"Erro: Saldo insuficiente no Caixa Principal para '{descricao}'.")
+
     def adicionar_pagamento(self, pagamento):
         if pagamento.status == "Pago":
             self.pagamentos.append(pagamento)
 
-    # NOVO MÉTODO: Para registrar coisas que não são mensalidades nem eventos
+    # Registrar movimentações que não são mensalidades nem eventos
     def adicionar_extra(self, descricao, valor):
         self.extras.append((descricao, valor))
 
@@ -202,7 +315,7 @@ class GestorFinanceiro:
         saldo_eventos = sum(e.saldo() for e in self.eventos)
         print(f"Resultado de Eventos no Mês: R$ {saldo_eventos:.2f}")
         
-        movimentacao_caixa = self.saldo_anterior + self.retencao_caixa + saldo_eventos
+        movimentacao_caixa = self.saldo_principal + self.retencao_caixa + saldo_eventos
         
         if movimentacao_caixa >= 0:
             print(f"Valor a ser guardado no Caixa da Escola: R$ {movimentacao_caixa:.2f}")
