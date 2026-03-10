@@ -94,12 +94,17 @@ class TurmaParticular:
                     total_aulas += qtd_aulas
                     
         return total_aulas
-
-# Função para calcular o repasse para o professor parceiro, caso a turma seja do tipo "Parceiro"
-    def calcular_repasse(self, valor_pago):
-        if self.tipo_gestao == "Parceiro":
-            return valor_pago * 0.75  # 75% do valor vai para o professor parceiro
-        return 0.0  # Turma própria não tem repasse de locação
+   
+class AulaAvulsa:
+    def __init__(self, aluno_nome, professor, data_aula):
+        self.aluno_nome = aluno_nome
+        self.professor = professor
+        self.data_aula = data_aula
+        self.valor_total_aula_avulsa = 40.00
+        
+        # Repasse professor e lucro da escola para aula avulsa (25% de lucro para a escola, 75% para o professor)
+        self.repasse_prof = self.valor_total_aula_avulsa * 0.75  # 75% de R$ 40
+        self.lucro_caixa_avulso = self.valor_total_aula_avulsa * 0.25  # 25% de R$ 40
 
 class Pagamento:
     def __init__(self, id_pagamento, aluno, turma, plano_contratado, mes_referencia, data_vencimento, 
@@ -197,6 +202,7 @@ class GestorFinanceiro:
     def __init__(self, mes_referencia, retencao_caixa, saldo_principal=0.0, saldo_matriculas=0.0, saldo_avulsas=0.0):
         self.mes_referencia = mes_referencia
         self.retencao_caixa = retencao_caixa
+        self.aulas_avulsas = []
 
         # Saldos dos 3 caixas para controle interno (não afetam o fechamento, mas ajudam a organizar as contas)
         self.saldo_principal = saldo_principal
@@ -215,9 +221,17 @@ class GestorFinanceiro:
         self.despesas_fixas = 0.0
         self.extras = [] 
 
+    # Método para registrar matrículas, adicionando o valor da matrícula ao caixa de matrículas
     def registrar_matricula(self, aluno, valor=100.00):
         self.saldo_matriculas += valor
         print(f"Matrícula de {aluno.nome} registrada! +R$ {valor:.2f} no Caixa Matrículas.")
+
+    # Método para registrar aulas avulsas, adicionando o lucro da escola ao caixa de avulsas
+    def registrar_aula_avulsa(self, aula_avulsa):
+        self.aulas_avulsas.append(aula_avulsa)
+    
+        self.saldo_avulsas += aula_avulsa.lucro_caixa_avulso
+        print(f"Aula Avulsa de {aula_avulsa.aluno_nome} registrada! +R${aula_avulsa.lucro_caixa_avulso:.2f} no Caixa Avulsas.")
 
     # Método para registrar saques do caixa, com descrição do motivo
     def retirar_caixa_matriculas(self, valor, descricao):
@@ -257,18 +271,25 @@ class GestorFinanceiro:
         print(f"\n{'='*15} FECHAMENTO CAIXA: {self.mes_referencia} {'='*15}")
         
         # 1. RELATÓRIO DE REPASSES (Professores Parceiros)
-        print("\n--- REPASSES PARA PROFESSORES PARCEIROS ---")
+        print("\n--- REPASSES PARA PROFESSORES ---")
         repasses = {} 
         
+        # Repasse turmas mensais/paticulares
         for p in self.pagamentos:
             if p.turma.tipo_gestao == "Parceiro":
                 prof = p.turma.professor 
-                
                 if prof not in repasses:
                     repasses[prof] = 0.0
-                
                 repasses[prof] += p.valor_repasse
+
+        # Repasse aulas avulsas
+        for avulsa in self.aulas_avulsas:
+            prof = avulsa.professor
+            if prof not in repasses:
+                repasses[prof] = 0.0
+            repasses[prof] += avulsa.repasse_prof
         
+        # Repasse para cada professor parceiro, mostrando o nome, chave PIX e valor total a ser transferido
         if repasses:
             for prof, valor in repasses.items():
                 print(f"Transferir para {prof.nome} | PIX: {prof.chave_pix} | Valor: R$ {valor:.2f}")
