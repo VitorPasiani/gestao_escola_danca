@@ -1,5 +1,6 @@
 import sqlite3
 
+###### ALUNOS ######
 def cadastrar_aluno(nome, cpf, rg=None, endereco=None, data_nascimento=None, email=None, contato_1=None, contato_2=None, responsavel=None):
     #CONECTA COM O BANCO DE DADOS
     conexao = sqlite3.connect('escola_danca.db')
@@ -79,6 +80,7 @@ def deletar_aluno(id_aluno):
 
     print(f"Cadastro do aluno com ID {id_aluno} foi excluído do sistema!")
 
+###### PROFESSORES ######
 def cadastrar_professor(nome, telefone=None, chave_pix=None):
     conexao = sqlite3.connect('escola_danca.db')
     cursor = conexao.cursor()
@@ -155,4 +157,82 @@ def deletar_professor(id_professor):
     conexao.close()
 
     print(f"Cadastro do professor com ID {id_professor} foi excluído do sistema!")
+
+###### PLANOS ######
+def cadastrar_plano(nome_plano, percentual_desconto):
+    conexao = sqlite3.connect('escola_danca.db')
+    cursor = conexao.cursor()
+
+    sql = '''
+        INSERT INTO planos (nome_plano, percentual_desconto)
+        VALUES (?, ?)
+    '''
+
+    valores = (nome_plano, percentual_desconto)
+
+    cursor.execute(sql, valores)
+    conexao.commit()
+    conexao.close()
+
+    print(f"Plano '{nome_plano}' cadastrado com sucesso com {percentual_desconto}% de desconto!")
+
+def atualizar_plano(id_plano, **kwargs):
+    if not kwargs:
+        print("Nenhuma informação a ser atualizada.")
+        return
+    
+    conexao = sqlite3.connect('escola_danca.db')
+    cursor = conexao.cursor()
+
+    campos_sql = []
+    valores = []
+
+    for coluna, novo_valor in kwargs.items():
+        campos_sql.append(f"{coluna} = ?")
+        valores.append(novo_valor)
+
+    texto_set = ", ".join(campos_sql)
+
+    sql = f'''
+        UPDATE planos
+        SET {texto_set}
+        WHERE id_plano = ?
+    '''
+
+    valores.append(id_plano)
+
+    cursor.execute(sql, tuple(valores))
+    conexao.commit()
+    conexao.close()
+
+    print(f"Cadastro do plano com ID {id_plano} atualizado com sucesso!")
+
+def listar_planos():
+    conexao = sqlite3.connect('escola_danca.db')
+    cursor = conexao.cursor()
+
+    cursor.execute('SELECT * FROM planos')
+    planos_salvos = cursor.fetchall()
+
+    print("\n--- LISTA DE PLANOS CADASTRADOS ---")
+    for plano in planos_salvos:
+        print(plano)
+        
+    conexao.close()
+
+def deletar_plano(id_plano):
+    conexao = sqlite3.connect('escola_danca.db')
+    cursor = conexao.cursor()
+
+    sql = '''
+        DELETE FROM planos
+        WHERE id_plano = ?
+    '''
+    valores = (id_plano,)
+
+    cursor.execute(sql, valores)
+    conexao.commit()
+    conexao.close()
+
+    print(f"Cadastro do plano com ID {id_plano} foi excluído do sistema!")
 
