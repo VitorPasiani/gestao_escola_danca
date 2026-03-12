@@ -1,0 +1,80 @@
+import sqlite3
+
+def cadastrar_aluno(nome, cpf, rg=None, endereco=None, data_nascimento=None, email=None, contato_1=None, contato_2=None, responsavel=None):
+    #CONECTA COM O BANCO DE DADOS
+    conexao = sqlite3.connect('escola_danca.db')
+    cursor = conexao.cursor()
+    
+    sql = '''
+        INSERT INTO alunos (nome, cpf, rg, endereco, data_nascimento, email, contato_1, contato_2, responsavel)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    '''
+
+    valores = (nome, cpf, rg, endereco, data_nascimento, email, contato_1, contato_2, responsavel)
+
+    cursor.execute(sql, valores)
+    conexao.commit()
+    conexao.close()
+
+    print(f"Aluno {nome} cadastrado com sucesso!")
+
+def atualizar_aluno(id_aluno, **kwargs):
+
+    if not kwargs:
+        print("Nenhuma informação a ser atualizada.")
+        return
+    
+    conexao = sqlite3.connect('escola_danca.db')
+    cursor = conexao.cursor()
+
+    campos_sql = [] # Lista para armazenar os campos a serem atualizados
+    valores = [] # Lista para armazenar os valores correspondentes aos campos
+
+    for coluna, novo_valor in kwargs.items():
+        campos_sql.append(f"{coluna} = ?") # Adiciona o campo e o placeholder para o valor
+        valores.append(novo_valor) # Adiciona o novo valor à lista de valores
+
+    texto_set = ", ".join(campos_sql) # Junta os campos em uma string para a cláusula SET
+
+    sql = f'''
+        UPDATE alunos
+        SET {texto_set}
+        WHERE id_aluno = ?
+    '''
+
+    valores.append(id_aluno) # Adiciona o id do aluno ao final da lista de valores para a cláusula WHERE
+
+    cursor.execute(sql, tuple(valores)) # Executa a consulta de atualização com os valores fornecidos
+    conexao.commit()
+    conexao.close()
+
+    print(f"Cadastro do aluno com ID {id_aluno} atualizado com sucesso!")
+
+def listar_alunos():
+    conexao = sqlite3.connect('escola_danca.db')
+    cursor = conexao.cursor()
+
+    cursor.execute('SELECT * FROM alunos')
+    alunos_salvos = cursor.fetchall()
+
+    print("\n--- LISTA DE ALUNOS MATRICULADOS ---")
+    for aluno in alunos_salvos:
+        print(aluno)
+        
+    conexao.close()
+
+def deletar_aluno(id_aluno):
+    conexao = sqlite3.connect('escola_danca.db')
+    cursor = conexao.cursor()
+
+    sql = '''
+        DELETE FROM alunos
+        WHERE id_aluno = ?
+    '''
+    valores = (id_aluno,) # Tupla com o ID do aluno a ser deletado
+
+    cursor.execute(sql, valores)
+    conexao.commit()
+    conexao.close()
+
+    print(f"Cadastro do aluno com ID {id_aluno} foi excluído do sistema!")
