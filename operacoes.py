@@ -78,3 +78,81 @@ def deletar_aluno(id_aluno):
     conexao.close()
 
     print(f"Cadastro do aluno com ID {id_aluno} foi excluído do sistema!")
+
+def cadastrar_professor(nome, telefone=None, chave_pix=None):
+    conexao = sqlite3.connect('escola_danca.db')
+    cursor = conexao.cursor()
+
+    sql = '''
+        INSERT INTO professores (nome, telefone, chave_pix)
+        VALUES (?, ?, ?)
+    '''
+
+    valores = (nome, telefone, chave_pix)
+
+    cursor.execute(sql, valores)
+    conexao.commit()
+    conexao.close()
+
+    print(f"Professor {nome} cadastrado com sucesso!")
+
+def atualizar_professor(id_professor, **kwargs):
+    if not kwargs:
+        print("Nenhuma informação a ser atualizada.")
+        return
+    
+    conexao = sqlite3.connect('escola_danca.db')
+    cursor = conexao.cursor()
+
+    campos_sql = []
+    valores = []
+
+    for coluna, novo_valor in kwargs.items():
+        campos_sql.append(f"{coluna} = ?")
+        valores.append(novo_valor)
+
+    texto_set = ", ".join(campos_sql)
+
+    sql = f'''
+        UPDATE professores
+        SET {texto_set}
+        WHERE id_professor = ?
+    '''
+
+    valores.append(id_professor)
+
+    cursor.execute(sql, tuple(valores))
+    conexao.commit()
+    conexao.close()
+
+    print(f"Cadastro do professor com ID {id_professor} atualizado com sucesso!")
+
+def listar_professores():
+    conexao = sqlite3.connect('escola_danca.db')
+    cursor = conexao.cursor()
+
+    cursor.execute('SELECT * FROM professores')
+    professores_salvos = cursor.fetchall()
+
+    print("\n--- LISTA DE PROFESSORES CADASTRADOS ---")
+    for professor in professores_salvos:
+        print(professor)
+        
+    conexao.close()
+
+def deletar_professor(id_professor):
+    conexao = sqlite3.connect('escola_danca.db')
+    cursor = conexao.cursor()
+
+    sql = '''
+        DELETE FROM professores
+        WHERE id_professor = ?
+    '''
+    valores = (id_professor,)
+
+    cursor.execute(sql, valores)
+    conexao.commit()
+    conexao.close()
+
+    print(f"Cadastro do professor com ID {id_professor} foi excluído do sistema!")
+
