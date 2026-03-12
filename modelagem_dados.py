@@ -15,7 +15,7 @@ from datetime import datetime
 import calendar
 
 class Aluno:
-    def __init__(self, id_aluno, nome, cpf, rg, endereco, data_nascimento, email, contato, responsavel):
+    def __init__(self, id_aluno, nome, cpf, rg, endereco, data_nascimento, email, contato_1, contato_2, responsavel):
         self.id_aluno = id_aluno
         self.nome = nome
         self.cpf = cpf
@@ -23,7 +23,8 @@ class Aluno:
         self.endereco = endereco
         self.data_nascimento = data_nascimento
         self.email = email
-        self.contato = contato
+        self.contato_1 = contato_1
+        self.contato_2 = contato_2
         self.responsavel = responsavel
         self.turmas = []  
         self.plano_atual = None
