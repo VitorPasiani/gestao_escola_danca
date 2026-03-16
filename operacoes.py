@@ -405,3 +405,108 @@ def cadastrar_transacao_evento(id_evento, descricao, tipo, valor):
     cursor.execute(sql, valores)
     conexao.commit()
     conexao.close()
+
+##### PAGAMENTOS ######
+def cadastrar_pagamento(id_aluno, id_turma, id_plano, mes_referencia, data_vencimento, valor_final, status, data_pagamento=None, desconto_manual=0.0, tipo_desconto_manual=None, taxa_maquininha=0.0):
+    conexao = sqlite3.connect('escola_danca.db')
+    cursor = conexao.cursor()
+
+    sql = '''
+        INSERT INTO pagamentos (id_aluno, id_turma, id_plano, mes_referencia, data_vencimento, desconto_manual, tipo_desconto_manual, taxa_maquininha, valor_final, status, data_pagamento)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    '''
+
+    valores = (id_aluno, id_turma, id_plano, mes_referencia, data_vencimento, desconto_manual, tipo_desconto_manual, taxa_maquininha, valor_final, status, data_pagamento)
+
+    cursor.execute(sql, valores)
+    conexao.commit()
+    conexao.close()
+
+    print(f"✅ Pagamento de {mes_referencia} registrado! Status: {status} | Valor Final: R${valor_final:.2f}")
+
+def atualizar_pagamento(id_pagamento, **kwargs):
+    if not kwargs:
+        print("Nenhuma informação a ser atualizada.")
+        return
+    
+    conexao = sqlite3.connect('escola_danca.db')
+    cursor = conexao.cursor()
+
+    campos_sql = []
+    valores = []
+
+    for coluna, novo_valor in kwargs.items():
+        campos_sql.append(f"{coluna} = ?")
+        valores.append(novo_valor)
+
+    texto_set = ", ".join(campos_sql)
+
+    sql = f'''
+        UPDATE pagamentos
+        SET {texto_set}
+        WHERE id_pagamento = ?
+    '''
+
+    valores.append(id_pagamento)
+
+    cursor.execute(sql, tuple(valores))
+    conexao.commit()
+    conexao.close()
+
+    print(f"Cadastro do pagamento com ID {id_pagamento} atualizado com sucesso!")
+
+def listar_pagamentos():
+    conexao = sqlite3.connect('escola_danca.db')
+    cursor = conexao.cursor()
+
+    sql = '''
+        SELECT 
+            pagamentos.id_pagamento,
+            alunos.nome,
+            turmas.nome_turma,
+            planos.nome_plano,
+            pagamentos.data_vencimento,
+            pagamentos.valor_final,
+            pagamentos.status,
+            pagamentos.data_pagamento
+        FROM pagamentos
+        JOIN alunos ON pagamentos.id_aluno = alunos.id_aluno
+        JOIN turmas ON pagamentos.id_turma = turmas.id_turma
+        JOIN planos ON pagamentos.id_plano = planos.id_plano
+    '''
+
+    cursor.execute(sql)
+    pagamentos_salvos = cursor.fetchall()
+
+    print("\n--- RELATÓRIO DE MENSALIDADES ---")
+    for pag in pagamentos_salvos:
+        id_pag = pag[0]
+        nome_aluno = pag[1]
+        nome_turma = pag[2]
+        nome_plano = pag[3]
+        data_venc = pag[4]
+        valor = pag[5]
+        status = pag[6]
+        data_pag = pag[7]
+        
+        texto_pago = f" | Pago em: {data_pag}" if data_pag else "" # Adiciona a data de pagamento ao texto se estiver disponível
+        
+        print(f"Recibo #{id_pag} | {nome_aluno} | {nome_turma} ({nome_plano}) | Venc: {data_venc} | R$ {valor:.2f} | Status: {status}{texto_pago}")
+        
+    conexao.close()
+
+def deletar_pagamento(id_pagamento):
+    conexao = sqlite3.connect('escola_danca.db')
+    cursor = conexao.cursor()
+
+    sql = '''
+        DELETE FROM pagamentos
+        WHERE id_pagamento = ?
+    '''
+    valores = (id_pagamento,)
+
+    cursor.execute(sql, valores)
+    conexao.commit()
+    conexao.close()
+
+    print(f"Cadastro do pagamento com ID {id_pagamento} foi excluído do sistema!")

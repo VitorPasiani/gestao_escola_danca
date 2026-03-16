@@ -71,6 +71,7 @@ def inicializar_banco():
             taxa_maquininha REAL,
             valor_final REAL,
             status TEXT,
+            data_pagamento TEXT,
                 
             FOREIGN KEY (id_aluno) REFERENCES alunos (id_aluno),
             FOREIGN KEY (id_turma) REFERENCES turmas (id_turma),

@@ -109,13 +109,15 @@ class AulaAvulsa:
 
 class Pagamento:
     def __init__(self, id_pagamento, aluno, turma, plano_contratado, mes_referencia, data_vencimento, 
-                 desconto_manual=0.0, tipo_desconto_manual="R$", taxa_maquininha=0.0):
+                 data_pagamento=None, desconto_manual=0.0, tipo_desconto_manual="R$", taxa_maquininha=0.0):
+        
         self.id_pagamento = id_pagamento
         self.aluno = aluno
         self.turma = turma  
         self.plano_contratado = plano_contratado
         self.mes_referencia = mes_referencia
         self.data_vencimento = datetime.strptime(data_vencimento, "%d/%m/%Y")
+        self.data_pagamento = data_pagamento
         
         self.desconto_manual = desconto_manual  # Para bolsistas ou acordos (R$)
         self.tipo_desconto_manual = tipo_desconto_manual  # Pode ser "R$" ou "%"
@@ -124,25 +126,24 @@ class Pagamento:
         self.valor_final = 0.0
         self.valor_repasse = 0.0
         self.valor_liquido_escola = 0.0
-        self.status = "Pendente"
+        self.status = "Pendente" if not data_pagamento else "Pago"
 
     def calcular_pagamento(self, data_pagamento_str):
-        data_pagamento = datetime.strptime(data_pagamento_str, "%d/%m/%Y")
+        self.data_pagamento = data_pagamento_str
+        
+        # Converte a string para data para fazer a matemática de atraso
+        data_pag_dt = datetime.strptime(data_pagamento_str, "%d/%m/%Y")
         
         # =======================================================
-        # 1. TURMA PARTICULAR VS TURMA NORMAL
+        # 1. TURMA PARTICULAR/TURMA NORMAL
         # =======================================================
-        if isinstance(self.turma, TurmaParticular):
-            # Se for particular, descobre quantas aulas o mês tem
+        if self.turma.tipo_gestao == "Particular": 
             ano = self.data_vencimento.year
             mes = self.data_vencimento.month
             qtd_aulas = self.turma.calcular_aulas_no_mes(ano, mes)
-            
-            # Valor base passa a ser a quantidade de aulas x R$ 40
             valor_cheio = self.turma.valor_por_aula * qtd_aulas
             print(f"[Sistema] {qtd_aulas} aulas calculadas para {self.turma.nome_turma} em {mes:02d}/{ano}.")
         else:
-            # Se for turma normal, puxa o valor fixo mensal
             valor_cheio = self.turma.valor_mensal_base 
 
         # =======================================================
@@ -150,7 +151,6 @@ class Pagamento:
         # =======================================================
         # VERIFICA SE É BOLSISTA (Tem desconto manual?)
         if self.desconto_manual > 0:
-            
             if self.tipo_desconto_manual == "%": # Se for porcentagem, calcula o valor a ser abatido com base no valor cheio da mensalidade
                 valor_abatido = valor_cheio * self.desconto_manual
                 valor_com_todos_descontos = valor_cheio - valor_abatido
@@ -169,8 +169,7 @@ class Pagamento:
                 valor_com_todos_descontos = valor_cheio
 
         # REGRA DO ATRASO
-        if data_pagamento > self.data_vencimento:
-            # Multa de 10% sobre o valor cheio da turma (perde todos os descontos)
+        if data_pag_dt > self.data_vencimento:
             self.valor_final = valor_cheio * 1.10
         else:
             self.valor_final = valor_com_todos_descontos
@@ -181,7 +180,7 @@ class Pagamento:
         self.status = "Pago"
         
         # Calcula o repasse (se houver)
-        self.valor_repasse = self.turma.calcular_repasse(self.valor_final)
+        self.valor_repasse = self.turma.calcular_repasse(self.valor_final) if hasattr(self.turma, 'calcular_repasse') else 0.0        
         
         # Calcula quanto a maquininha levou (Porcentagem em cima do que o aluno pagou)
         desconto_banco = self.valor_final * self.taxa_maquininha
