@@ -313,3 +313,95 @@ def deletar_turma(id_turma):
     conexao.close()
 
     print(f"Cadastro da turma com ID {id_turma} foi excluído do sistema!")
+
+##### EVENTOS ######
+def cadastrar_evento(nome_evento, data_evento=None):
+    conexao = sqlite3.connect('escola_danca.db')
+    cursor = conexao.cursor()
+
+    sql = '''
+        INSERT INTO eventos (nome_evento, data_evento)
+        VALUES (?, ?)
+    '''
+    valores = (nome_evento, data_evento)
+
+    cursor.execute(sql, valores)
+    conexao.commit()
+    conexao.close()
+
+    print(f"Evento '{nome_evento}' agendado com sucesso para {data_evento}!")
+
+def atualizar_evento(id_evento, **kwargs):
+    if not kwargs:
+        print("Nenhuma informação a ser atualizada.")
+        return
+    
+    conexao = sqlite3.connect('escola_danca.db')
+    cursor = conexao.cursor()
+
+    campos_sql = []
+    valores = []
+
+    for coluna, novo_valor in kwargs.items():
+        campos_sql.append(f"{coluna} = ?")
+        valores.append(novo_valor)
+
+    texto_set = ", ".join(campos_sql)
+
+    sql = f'''
+        UPDATE eventos
+        SET {texto_set}
+        WHERE id_evento = ?
+    '''
+
+    valores.append(id_evento)
+
+    cursor.execute(sql, tuple(valores))
+    conexao.commit()
+    conexao.close()
+
+    print(f"Cadastro do evento com ID {id_evento} atualizado com sucesso!")
+
+def listar_eventos():
+    conexao = sqlite3.connect('escola_danca.db')
+    cursor = conexao.cursor()
+
+    cursor.execute('SELECT * FROM eventos')
+    eventos_salvos = cursor.fetchall()
+
+    print("\n--- LISTA DE EVENTOS CADASTRADOS ---")
+    for evento in eventos_salvos:
+        print(evento)
+        
+    conexao.close()
+
+def deletar_evento(id_evento):
+    conexao = sqlite3.connect('escola_danca.db')
+    cursor = conexao.cursor()
+
+    sql = '''
+        DELETE FROM eventos
+        WHERE id_evento = ?
+    '''
+    valores = (id_evento,)
+
+    cursor.execute(sql, valores)
+    conexao.commit()
+    conexao.close()
+
+    print(f"Cadastro do evento com ID {id_evento} foi excluído do sistema!")
+
+##### FINANCEIRO EVENTOS ######
+def cadastrar_transacao_evento(id_evento, descricao, tipo, valor):
+    conexao = sqlite3.connect('escola_danca.db')
+    cursor = conexao.cursor()
+
+    sql = '''
+        INSERT INTO financeiro_eventos (id_evento, descricao, tipo, valor)
+        VALUES (?, ?, ?, ?)
+    '''
+    valores = (id_evento, descricao, tipo, valor)
+
+    cursor.execute(sql, valores)
+    conexao.commit()
+    conexao.close()

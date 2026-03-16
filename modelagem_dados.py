@@ -190,14 +190,20 @@ class Pagamento:
         self.valor_liquido_escola = self.valor_final - self.valor_repasse - desconto_banco
 
 class Evento:
-    def __init__ (self, id_evento, nome_evento, receitas=0.0, despesas=0.0):
+    def __init__ (self, id_evento, nome_evento, data_evento=None):
         self.id_evento = id_evento
         self.nome_evento = nome_evento
-        self.receitas = receitas
-        self.despesas = despesas
+        self.data_evento = data_evento
+
+        self.transacoes = []  # Lista de tuplas (descricao, valor) para registrar receitas e despesas do evento
+
+    def adicionar_transacao(self, descricao, tipo, valor):
+        self.transacoes.append({"descricao": descricao, "tipo": tipo, "valor": valor})
 
     def saldo(self):
-        return self.receitas - self.despesas
+        total_entradas = sum(t["valor"] for t in self.transacoes if t["tipo"] == "Entrada") #Soma apenas as transações do tipo "Entrada"
+        total_saidas = sum(t["valor"] for t in self.transacoes if t["tipo"] == "Saída") #Soma apenas as transações do tipo "Saída"
+        return total_entradas - total_saidas # Retorna o saldo final do evento (positivo ou negativo)
     
 class GestorFinanceiro:
     def __init__(self, mes_referencia, retencao_caixa, saldo_principal=0.0, saldo_matriculas=0.0, saldo_avulsas=0.0):
@@ -333,16 +339,39 @@ class GestorFinanceiro:
             print("Atenção: Saldo insuficiente para divisão após descontar despesas e retenção.")
 
         # 4. CAIXA GERAL DA ESCOLA
-        print("\n--- CAIXA GERAL DA ESCOLA ---")
-        saldo_eventos = sum(e.saldo() for e in self.eventos)
-        print(f"Resultado de Eventos no Mês: R$ {saldo_eventos:.2f}")
+
+        # 4.1 BALANÇO DE EVENTOS
+        print("\n--- BALANÇO DETALHADO DE EVENTOS ---")
+
+        saldo_eventos = 0.0
         
+        if self.eventos:
+            for e in self.eventos:
+                print(f"\nEvento: {e.nome_evento}")
+                
+                # Lista cada transação
+                for t in e.transacoes:
+                    sinal = "+" if t["tipo"] == "Entrada" else "-"
+                    print(f"   {t['descricao']}: {sinal}R$ {t['valor']:.2f}")
+                
+                # Puxa o saldo dinâmico na classe Evento
+                lucro_evento = e.saldo()
+                print(f"   >> Resultado do Evento: R$ {lucro_evento:.2f}")
+                
+                saldo_eventos += lucro_evento
+        else:
+            print("Nenhum evento registrado neste mês.")
+
+        # 4.2 CAIXA GERAL (Somando tudo que entrou e saiu, incluindo o resultado dos eventos)
+
+        print("\n--- CAIXA GERAL DA ESCOLA ---")
+
         movimentacao_caixa = self.saldo_principal + self.retencao_caixa + saldo_eventos
         
         if movimentacao_caixa >= 0:
-            print(f"Valor a ser guardado no Caixa da Escola: R$ {movimentacao_caixa:.2f}")
+            print(f"Valor a ser guardado no Caixa da Escola: R$ {movimentacao_caixa:.2f}\n")
         else:
-            print(f"ATENÇÃO: Eventos deram déficit. Retirar do Caixa: R$ {abs(movimentacao_caixa):.2f}")
+            print(f"ATENÇÃO: Déficit no caixa geral. Retirar das reservas: R$ {abs(movimentacao_caixa):.2f}\n")
             
         print("="*50)
 

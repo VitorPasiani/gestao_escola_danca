@@ -4,6 +4,7 @@ def inicializar_banco():
     conexao = sqlite3.connect('escola_danca.db')
     cursor = conexao.cursor()
 
+#TABELA ALUNOS
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS alunos (
             id_aluno INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -19,6 +20,7 @@ def inicializar_banco():
         )
     ''')
 
+#TABELA PROFESSORES
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS professores (
             id_professor INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -28,6 +30,7 @@ def inicializar_banco():
         )
     ''')
 
+#TABELA PLANOS
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS planos (
             id_plano INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -36,6 +39,7 @@ def inicializar_banco():
         )
     ''')
 
+#TABELA TURMAS
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS turmas (
             id_turma INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -53,6 +57,7 @@ def inicializar_banco():
         )
     ''')
 
+#TABELA PAGAMENTOS
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS pagamentos (
             id_pagamento INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -73,6 +78,7 @@ def inicializar_banco():
         )
     ''')
 
+#TABELA AULAS AVULSAS
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS aulas_avulsas (
             id_aula INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -87,15 +93,29 @@ def inicializar_banco():
         )
     ''')
 
+#TABELA EVENTOS
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS eventos (
             id_evento INTEGER PRIMARY KEY AUTOINCREMENT,
             nome_evento TEXT NOT NULL,
-            receitas REAL NOT NULL,
-            despesas REAL NOT NULL
+            data_evento TEXT NOT NULL
         )
     ''')
 
+#TABELA FINANCEIRO EVENTOS
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS financeiro_eventos (
+            id_transacao_evento INTEGER PRIMARY KEY AUTOINCREMENT,
+            id_evento INTEGER,
+            descricao TEXT NOT NULL,
+            tipo TEXT NOT NULL,
+            valor REAL NOT NULL,
+                
+            FOREIGN KEY (id_evento) REFERENCES eventos (id_evento)
+        )
+    ''')
+
+#TABELA SALDOS CAIXA
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS saldos_caixa (
             id_saldo INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -105,6 +125,7 @@ def inicializar_banco():
         )
     ''')
 
+# Verificar se a tabela de saldos_caixa está vazia e inserir um registro inicial se necessário
     cursor.execute('SELECT COUNT(*) FROM saldos_caixa')
     if cursor.fetchone()[0] == 0:
         cursor.execute('INSERT INTO saldos_caixa (saldo_principal, saldo_matriculas, saldo_avulsas) VALUES (0.0, 0.0, 0.0)')
