@@ -8,8 +8,8 @@ def inicializar_banco():
         CREATE TABLE IF NOT EXISTS alunos (
             id_aluno INTEGER PRIMARY KEY AUTOINCREMENT,
             nome TEXT NOT NULL,
-            cpf TEXT UNIQUE NOT NULL,
-            rg TEXT,
+            cpf TEXT UNIQUE,
+            rg TEXT UNIQUE,
             endereco TEXT,
             data_nascimento TEXT,
             email TEXT,

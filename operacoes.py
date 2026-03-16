@@ -1,7 +1,7 @@
 import sqlite3
 
 ###### ALUNOS ######
-def cadastrar_aluno(nome, cpf, rg=None, endereco=None, data_nascimento=None, email=None, contato_1=None, contato_2=None, responsavel=None):
+def cadastrar_aluno(nome, cpf=None, rg=None, endereco=None, data_nascimento=None, email=None, contato_1=None, contato_2=None, responsavel=None):
     #CONECTA COM O BANCO DE DADOS
     conexao = sqlite3.connect('escola_danca.db')
     cursor = conexao.cursor()
@@ -236,3 +236,80 @@ def deletar_plano(id_plano):
 
     print(f"Cadastro do plano com ID {id_plano} foi excluído do sistema!")
 
+###### TURMAS ######
+def cadastrar_turma(nome_turma, tipo_gestao, id_professor=None, horario=None, dias_semana=None, valor_mensal_base=None, is_particular=False, cronograma=None, valor_por_aula=None):
+    conexao = sqlite3.connect('escola_danca.db')
+    cursor = conexao.cursor()
+
+    sql = '''
+        INSERT INTO turmas (nome_turma, id_professor, horario, dias_semana, valor_mensal_base, tipo_gestao, is_particular, cronograma, valor_por_aula)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    '''
+
+    valores = (nome_turma, id_professor, horario, dias_semana, valor_mensal_base, tipo_gestao, is_particular, cronograma, valor_por_aula)
+
+    cursor.execute(sql, valores)
+    conexao.commit()
+    conexao.close()
+
+    print(f"Turma '{nome_turma}' cadastrada com sucesso!")
+
+def atualizar_turma(id_turma, **kwargs):
+    if not kwargs:
+        print("Nenhuma informação a ser atualizada.")
+        return
+    
+    conexao = sqlite3.connect('escola_danca.db')
+    cursor = conexao.cursor()
+
+    campos_sql = []
+    valores = []
+
+    for coluna, novo_valor in kwargs.items():
+        campos_sql.append(f"{coluna} = ?")
+        valores.append(novo_valor)
+
+    texto_set = ", ".join(campos_sql)
+
+    sql = f'''
+        UPDATE turmas
+        SET {texto_set}
+        WHERE id_turma = ?
+    '''
+
+    valores.append(id_turma)
+
+    cursor.execute(sql, tuple(valores))
+    conexao.commit()
+    conexao.close()
+
+    print(f"Cadastro da turma com ID {id_turma} atualizado com sucesso!")
+
+def listar_turmas():
+    conexao = sqlite3.connect('escola_danca.db')
+    cursor = conexao.cursor()
+
+    cursor.execute('SELECT * FROM turmas')
+    turmas_salvas = cursor.fetchall()
+
+    print("\n--- LISTA DE TURMAS CADASTRADAS ---")
+    for turma in turmas_salvas:
+        print(turma)
+        
+    conexao.close()
+
+def deletar_turma(id_turma):
+    conexao = sqlite3.connect('escola_danca.db')
+    cursor = conexao.cursor()
+
+    sql = '''
+        DELETE FROM turmas
+        WHERE id_turma = ?
+    '''
+    valores = (id_turma,)
+
+    cursor.execute(sql, valores)
+    conexao.commit()
+    conexao.close()
+
+    print(f"Cadastro da turma com ID {id_turma} foi excluído do sistema!")
