@@ -97,15 +97,14 @@ class TurmaParticular:
         return total_aulas
    
 class AulaAvulsa:
-    def __init__(self, aluno_nome, professor, data_aula):
+    def __init__(self, aluno_nome, professor, data_aula, valor_total_aula_avulsa, percentual_repasse=0.0):
         self.aluno_nome = aluno_nome
         self.professor = professor
         self.data_aula = data_aula
-        self.valor_total_aula_avulsa = 40.00
+        self.valor_total_aula_avulsa = valor_total_aula_avulsa
         
-        # Repasse professor e lucro da escola para aula avulsa (25% de lucro para a escola, 75% para o professor)
-        self.repasse_prof = self.valor_total_aula_avulsa * 0.75  # 75% de R$ 40
-        self.lucro_caixa_avulso = self.valor_total_aula_avulsa * 0.25  # 25% de R$ 40
+        self.repasse_prof = self.valor_total_aula_avulsa * percentual_repasse # Exemplo: 0.75 para 75% de repasse
+        self.lucro_caixa_avulso = self.valor_total_aula_avulsa - self.repasse_prof
 
 class Pagamento:
     def __init__(self, id_pagamento, aluno, turma, plano_contratado, mes_referencia, data_vencimento, 

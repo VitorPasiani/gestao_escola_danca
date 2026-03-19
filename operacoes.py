@@ -406,6 +406,127 @@ def cadastrar_transacao_evento(id_evento, descricao, tipo, valor):
     conexao.commit()
     conexao.close()
 
+
+##### AULAS AVULSAS ######
+def cadastrar_aula_avulsa(aluno_nome, nome_professor, data_aula, valor_total_aula_avulsa, percentual_repasse=0):
+    conexao = sqlite3.connect('escola_danca.db')
+    cursor = conexao.cursor()
+
+    cursor.execute("SELECT id_professor FROM professores WHERE nome LIKE ?", (f'%{nome_professor}%',)) # Busca o ID do professor com base no nome fornecido (usando LIKE para permitir buscas parciais)
+    resultado = cursor.fetchone()
+
+    if not resultado: # Se não encontrar nenhum professor com o nome fornecido, exibe uma mensagem de erro e encerra a função
+        print(f"Ops! Não encontrei nenhum professor com o nome '{nome_professor}'. Verifique a digitação.")
+        conexao.close()
+        return
+
+    id_professor = resultado[0]
+
+    repasse_prof = valor_total_aula_avulsa * (percentual_repasse / 100)
+    lucro_caixa_avulso = valor_total_aula_avulsa - repasse_prof
+
+    sql = '''
+        INSERT INTO aulas_avulsas (aluno_nome, id_professor, data_aula, valor_total_aula_avulsa, repasse_prof, lucro_caixa_avulso)
+        VALUES (?, ?, ?, ?, ?, ?)
+    '''
+    
+    valores = (aluno_nome, id_professor, data_aula, valor_total_aula_avulsa, repasse_prof, lucro_caixa_avulso)
+
+    cursor.execute(sql, valores)
+    conexao.commit()
+    conexao.close()
+
+    print(f"Aula avulsa de {aluno_nome} registrada com sucesso!")
+    print(f"Prof: {nome_professor} (ID: {id_professor})")
+    print(f"Total Pago: R${valor_total_aula_avulsa:.2f} | Repasse Prof: R${repasse_prof:.2f} | Lucro Escola: R${lucro_caixa_avulso:.2f}")
+
+def listar_aulas_avulsas():
+    conexao = sqlite3.connect('escola_danca.db')
+    cursor = conexao.cursor()
+
+    sql = '''
+        SELECT 
+            aulas_avulsas.id_aula,
+            aulas_avulsas.aluno_nome,
+            professores.nome,
+            aulas_avulsas.data_aula,
+            aulas_avulsas.valor_total_aula_avulsa,
+            aulas_avulsas.repasse_prof,
+            aulas_avulsas.lucro_caixa_avulso
+        FROM aulas_avulsas
+        LEFT JOIN professores ON aulas_avulsas.id_professor = professores.id_professor
+    '''
+
+    cursor.execute(sql)
+    aulas_salvas = cursor.fetchall()
+
+    print("\n--- RELATÓRIO DE AULAS AVULSAS ---")
+
+    if not aulas_salvas:
+        print("Nenhuma aula avulsa registrada ainda.")
+        conexao.close()
+        return
+
+    for aula in aulas_salvas:
+        id_aula = aula[0]
+        aluno = aula[1]
+        professor = aula[2] if aula[2] else "Prof. Desconhecido ou Deletado"
+        data = aula[3]
+        valor_total = aula[4]
+        repasse = aula[5]
+        lucro = aula[6]
+
+    print(f"Recibo #{id_aula} | Aluno: {aluno} | Prof: {professor} | Data: {data} | Total: R${valor_total:.2f} | Repasse: R${repasse:.2f} | Lucro Escola: R${lucro:.2f}")
+    conexao.close()
+
+def atualizar_aula_avulsa(id_aula, **kwargs):
+    if not kwargs:
+        print("Nenhuma informação a ser atualizada.")
+        return
+    
+    conexao = sqlite3.connect('escola_danca.db')
+    cursor = conexao.cursor()
+
+    campos_sql = []
+    valores = []
+
+    for coluna, novo_valor in kwargs.items():
+        campos_sql.append(f"{coluna} = ?")
+        valores.append(novo_valor)
+
+    texto_set = ", ".join(campos_sql)
+
+    sql = f'''
+        UPDATE aulas_avulsas
+        SET {texto_set}
+        WHERE id_aula = ?
+    '''
+
+    valores.append(id_aula)
+
+    cursor.execute(sql, tuple(valores))
+    conexao.commit()
+    conexao.close()
+
+    print(f"Cadastro da aula avulsa com ID {id_aula} atualizado com sucesso!")
+
+def deletar_aula_avulsa(id_aula):
+    conexao = sqlite3.connect('escola_danca.db')
+    cursor = conexao.cursor()
+
+    sql = '''
+        DELETE FROM aulas_avulsas
+        WHERE id_aula = ?
+    '''
+    valores = (id_aula,)
+
+    cursor.execute(sql, valores)
+    conexao.commit()
+    conexao.close()
+
+    print(f"Cadastro da aula avulsa com ID {id_aula} foi excluído do sistema!")
+
+
 ##### PAGAMENTOS ######
 def cadastrar_pagamento(id_aluno, id_turma, id_plano, mes_referencia, data_vencimento, valor_final, status, data_pagamento=None, desconto_manual=0.0, tipo_desconto_manual=None, taxa_maquininha=0.0):
     conexao = sqlite3.connect('escola_danca.db')

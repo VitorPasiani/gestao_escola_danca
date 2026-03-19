@@ -84,7 +84,7 @@ def inicializar_banco():
         CREATE TABLE IF NOT EXISTS aulas_avulsas (
             id_aula INTEGER PRIMARY KEY AUTOINCREMENT,
             aluno_nome TEXT NOT NULL,
-            id_professor INTEGER,
+            id_professor INTEGER NOT NULL,
             data_aula TEXT NOT NULL,
             valor_total_aula_avulsa REAL NOT NULL,
             repasse_prof REAL NOT NULL,
