@@ -15,7 +15,7 @@ from datetime import datetime
 import calendar
 
 class Aluno:
-    def __init__(self, id_aluno, nome, cpf, rg, endereco, data_nascimento, email, contato_1, contato_2, responsavel):
+    def __init__(self, id_aluno, nome, cpf, rg, endereco, data_nascimento, email, contato_1, contato_2, responsavel, ativo=1):
         self.id_aluno = id_aluno
         self.nome = nome
         self.cpf = cpf
@@ -26,6 +26,7 @@ class Aluno:
         self.contato_1 = contato_1
         self.contato_2 = contato_2
         self.responsavel = responsavel
+        self.ativo = ativo
         self.turmas = []  
         self.plano_atual = None
 
@@ -37,23 +38,25 @@ class Aluno:
         print(f"Aluno {self.nome} matriculado na turma {turma.nome_turma}!")
 
 class Plano:
-    def __init__(self, id_plano, nome_plano, percentual_desconto):
+    def __init__(self, id_plano, nome_plano, percentual_desconto, duracao_meses=1):
         self.id_plano = id_plano
         self.nome_plano = nome_plano
         self.percentual_desconto = percentual_desconto
+        self.duracao_meses = duracao_meses
 
 class Professor:
-    def __init__(self, id_professor, nome, telefone, chave_pix):
+    def __init__(self, id_professor, nome, telefone, chave_pix, ativo=1):
         self.id_professor = id_professor
         self.nome = nome
         self.telefone = telefone
         self.chave_pix = chave_pix
+        self.ativo = ativo
 
     def __repr__(self):
         return f"Professor({self.nome})"
 
 class Turma:
-    def __init__(self, id_turma, nome_turma, professor, horario, dias_semana, valor_mensal_base, tipo_gestao="Propria"):
+    def __init__(self, id_turma, nome_turma, professor, horario, dias_semana, valor_mensal_base, tipo_gestao="Propria", ativo=1):
         self.id_turma = id_turma
         self.nome_turma = nome_turma
         self.professor = professor
@@ -61,6 +64,7 @@ class Turma:
         self.dias_semana = dias_semana
         self.valor_mensal_base = valor_mensal_base
         self.tipo_gestao = tipo_gestao
+        self.ativo = ativo
 
     # Essa função pertence à Turma normal!
     def calcular_repasse(self, valor_pago):
@@ -69,16 +73,17 @@ class Turma:
         return 0.0  # Turma própria não tem repasse de locação
 
 class TurmaParticular:
-    def __init__(self, id_turma, aluno_nome, professor, cronograma, valor_por_aula=40.00):
+    def __init__(self, id_turma, aluno_nome, professor, cronograma, valor_por_aula=40.00, percentual_repasse=0.75):
         self.id_turma = id_turma
         self.nome_turma = f"Particular - {aluno_nome}"
         self.professor = professor
         self.cronograma = cronograma 
         self.valor_por_aula = valor_por_aula
+        self.percentual_repasse = percentual_repasse
         self.tipo_gestao = "Parceiro"
 
     def calcular_repasse(self, valor_pago):
-        return valor_pago * 0.75
+        return valor_pago * self.percentual_repasse
 
     def calcular_aulas_no_mes(self, ano, mes):
         mapa_dias = {
@@ -273,13 +278,22 @@ class GestorFinanceiro:
         self.extras.append((descricao, valor))
 
     def fechar_mes(self):
-        print(f"\n{'='*15} FECHAMENTO CAIXA: {self.mes_referencia} {'='*15}")
-        
-        # 1. RELATÓRIO DE REPASSES (Professores Parceiros)
-        print("\n--- REPASSES PARA PROFESSORES ---")
+        # 1. Formulário de fechamento mensal
+        relatorio = {
+            "mes_referencia": self.mes_referencia,
+            "repasses_professores": [],
+            "receita_turmas_liquida": 0.0,
+            "total_extras": 0.0,
+            "despesas_fixas": 0.0,
+            "lucro_operacional": 0.0,
+            "retencao_caixa": 0.0,
+            "repasse_socias": 0.0,
+            "saldo_eventos": 0.0,
+            "movimentacao_caixa_geral": 0.0
+        }
+
+        # 2. Lógica dos Repasses dos Professores
         repasses = {} 
-        
-        # Repasse turmas mensais/paticulares
         for p in self.pagamentos:
             if p.turma.tipo_gestao == "Parceiro":
                 prof = p.turma.professor 
@@ -287,89 +301,48 @@ class GestorFinanceiro:
                     repasses[prof] = 0.0
                 repasses[prof] += p.valor_repasse
 
-        # Repasse aulas avulsas
         for avulsa in self.aulas_avulsas:
             prof = avulsa.professor
             if prof not in repasses:
                 repasses[prof] = 0.0
             repasses[prof] += avulsa.repasse_prof
         
-        # Repasse para cada professor parceiro, mostrando o nome, chave PIX e valor total a ser transferido
         if repasses:
             for prof, valor in repasses.items():
-                print(f"Transferir para {prof.nome} | PIX: {prof.chave_pix} | Valor: R$ {valor:.2f}")
-        else:
-            print("Nenhum repasse a ser feito neste mês.")
+                relatorio["repasses_professores"].append({
+                    "nome_professor": prof.nome,
+                    "chave_pix": prof.chave_pix,
+                    "valor_repasse": valor
+                })
 
-        # 2. BALANÇO OPERACIONAL E EXTRAS
-        print("\n--- BALANÇO OPERACIONAL (MENSALIDADES E EXTRAS) ---")
-        receita_turmas_liquida = sum(p.valor_liquido_escola for p in self.pagamentos)
-        print(f"Receita Líquida Turmas (Escola): R$ {receita_turmas_liquida:.2f}")
-        
-        # PROCESSANDO OS EXTRAS
-        total_extras = 0.0
-        if self.extras:
-            print("\n  >> Detalhamento de Extras:")
-            for descricao, valor in self.extras:
-                # Cria um sinal de "+" visual para facilitar a leitura se for lucro
-                sinal = "+" if valor > 0 else ""
-                print(f"     {descricao}: {sinal}R$ {valor:.2f}")
-            
-            # Soma todos os valores da posição [1] das tuplas
-            total_extras = sum(valor for descricao, valor in self.extras)
-            print(f"  >> Resultado dos Extras: R$ {total_extras:.2f}\n")
+        # 3. Balanço Operacional e Extras
+        receita_turmas = sum(p.valor_liquido_escola for p in self.pagamentos)
+        relatorio["receita_turmas_liquida"] = receita_turmas
 
-        # O lucro operacional agora abraça os extras também!
-        lucro_operacional = receita_turmas_liquida - self.despesas_fixas + total_extras
-        print(f"Despesas Fixas da Escola: R$ {self.despesas_fixas:.2f}")
-        print(f"Lucro Operacional: R$ {lucro_operacional:.2f}")
+        total_extras = sum(valor for _, valor in self.extras)
+        relatorio["total_extras"] = total_extras
 
-        # 3. DIVISÃO SOCIETÁRIA
-        print("\n--- DIVISÃO DE LUCROS (SÓCIAS) ---")
-        valor_distribuir = lucro_operacional - self.retencao_caixa
+        lucro_op = receita_turmas - self.despesas_fixas + total_extras
+        relatorio["lucro_operacional"] = lucro_op
+        relatorio["despesas_fixas"] = self.despesas_fixas
 
+        # 4. Divisão Societária
+        valor_distribuir = lucro_op - self.retencao_caixa
         if valor_distribuir > 0:
-            salario_socias = valor_distribuir / 2
-            print(f"Retenção Mensal para o Caixa: R$ {self.retencao_caixa:.2f}")
-            print(f"Repasse Sócia 1: R$ {salario_socias:.2f}")
-            print(f"Repasse Sócia 2: R$ {salario_socias:.2f}")
+            relatorio["repasse_socias"] = valor_distribuir / 2
         else:
-            print("Atenção: Saldo insuficiente para divisão após descontar despesas e retenção.")
+            relatorio["repasse_socias"] = 0.0
+            
+        relatorio["retencao_caixa"] = self.retencao_caixa
 
-        # 4. CAIXA GERAL DA ESCOLA
-
-        # 4.1 BALANÇO DE EVENTOS
-        print("\n--- BALANÇO DETALHADO DE EVENTOS ---")
-
+        # 5. Eventos e Caixa Geral
         saldo_eventos = 0.0
-        
-        if self.eventos:
-            for e in self.eventos:
-                print(f"\nEvento: {e.nome_evento}")
-                
-                # Lista cada transação
-                for t in e.transacoes:
-                    sinal = "+" if t["tipo"] == "Entrada" else "-"
-                    print(f"   {t['descricao']}: {sinal}R$ {t['valor']:.2f}")
-                
-                # Puxa o saldo dinâmico na classe Evento
-                lucro_evento = e.saldo()
-                print(f"   >> Resultado do Evento: R$ {lucro_evento:.2f}")
-                
-                saldo_eventos += lucro_evento
-        else:
-            print("Nenhum evento registrado neste mês.")
-
-        # 4.2 CAIXA GERAL (Somando tudo que entrou e saiu, incluindo o resultado dos eventos)
-
-        print("\n--- CAIXA GERAL DA ESCOLA ---")
+        for e in self.eventos:
+            saldo_eventos += e.saldo()
+            
+        relatorio["saldo_eventos"] = saldo_eventos
 
         movimentacao_caixa = self.saldo_principal + self.retencao_caixa + saldo_eventos
-        
-        if movimentacao_caixa >= 0:
-            print(f"Valor a ser guardado no Caixa da Escola: R$ {movimentacao_caixa:.2f}\n")
-        else:
-            print(f"ATENÇÃO: Déficit no caixa geral. Retirar das reservas: R$ {abs(movimentacao_caixa):.2f}\n")
-            
-        print("="*50)
+        relatorio["movimentacao_caixa_geral"] = movimentacao_caixa
 
+        return relatorio

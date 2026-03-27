@@ -4,7 +4,10 @@ def inicializar_banco():
     conexao = sqlite3.connect('escola_danca.db')
     cursor = conexao.cursor()
 
-#TABELA ALUNOS
+    # 1. LIGANDO O FISCAL DE CHAVES ESTRANGEIRAS
+    cursor.execute('PRAGMA foreign_keys = ON;')
+
+    # TABELA ALUNOS (Com a coluna 'ativo')
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS alunos (
             id_aluno INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -16,30 +19,33 @@ def inicializar_banco():
             email TEXT,
             contato_1 TEXT,
             contato_2 TEXT,
-            responsavel TEXT
+            responsavel TEXT,
+            ativo INTEGER DEFAULT 1 
         )
     ''')
 
-#TABELA PROFESSORES
+    # TABELA PROFESSORES (Com a coluna 'ativo')
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS professores (
             id_professor INTEGER PRIMARY KEY AUTOINCREMENT,
             nome TEXT NOT NULL,
             telefone TEXT,
-            chave_pix TEXT UNIQUE
+            chave_pix TEXT UNIQUE,
+            ativo INTEGER DEFAULT 1
         )
     ''')
 
-#TABELA PLANOS
+    # TABELA PLANOS
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS planos (
             id_plano INTEGER PRIMARY KEY AUTOINCREMENT,
             nome_plano TEXT NOT NULL,
-            percentual_desconto REAL NOT NULL
+            percentual_desconto REAL NOT NULL,
+            duracao_meses INTEGER DEFAULT 1
         )
     ''')
 
-#TABELA TURMAS
+    # TABELA TURMAS (Com a coluna 'ativo')
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS turmas (
             id_turma INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -52,12 +58,13 @@ def inicializar_banco():
             is_particular BOOLEAN,
             cronograma TEXT,
             valor_por_aula REAL,
-
+            ativo INTEGER DEFAULT 1,
+            
             FOREIGN KEY (id_professor) REFERENCES professores (id_professor)
         )
     ''')
 
-#TABELA PAGAMENTOS
+    # TABELA PAGAMENTOS
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS pagamentos (
             id_pagamento INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -79,7 +86,7 @@ def inicializar_banco():
         )
     ''')
 
-#TABELA AULAS AVULSAS
+    # TABELA AULAS AVULSAS
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS aulas_avulsas (
             id_aula INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -94,7 +101,7 @@ def inicializar_banco():
         )
     ''')
 
-#TABELA EVENTOS
+    # TABELA EVENTOS
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS eventos (
             id_evento INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -103,7 +110,7 @@ def inicializar_banco():
         )
     ''')
 
-#TABELA FINANCEIRO EVENTOS
+    # TABELA FINANCEIRO EVENTOS
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS financeiro_eventos (
             id_transacao_evento INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -116,7 +123,7 @@ def inicializar_banco():
         )
     ''')
 
-#TABELA SALDOS CAIXA
+    # TABELA SALDOS CAIXA
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS saldos_caixa (
             id_saldo INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -126,7 +133,7 @@ def inicializar_banco():
         )
     ''')
 
-# Verificar se a tabela de saldos_caixa está vazia e inserir um registro inicial se necessário
+    # Verificar se a tabela de saldos_caixa está vazia e inserir um registro inicial se necessário
     cursor.execute('SELECT COUNT(*) FROM saldos_caixa')
     if cursor.fetchone()[0] == 0:
         cursor.execute('INSERT INTO saldos_caixa (saldo_principal, saldo_matriculas, saldo_avulsas) VALUES (0.0, 0.0, 0.0)')
