@@ -1,0 +1,29 @@
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&display=swap');
+
+:root {
+    --celeste: #B0FEFE;
+    --polaris: #F7F7F7;
+    --preto-matte: #191919;
+    --rosa-apoio: #f5c5d1;
+    --azul-marinho: #203760;
+}
+
+body {
+    font-family: 'Montserrat', sans-serif;
+    background-color: var(--polaris) !important;
+}
+
+.navbar-ato {
+    background-color: var(--preto-matte) !important;
+}
+
+.card-header-ato {
+    background-color: var(--azul-marinho) !important;
+    color: white;
+}
+
+.badge-ato {
+    background-color: var(--celeste) !important;
+    color: var(--preto-matte) !important;
+    font-weight: 600;
+}

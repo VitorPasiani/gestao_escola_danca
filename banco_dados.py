@@ -7,7 +7,7 @@ def inicializar_banco():
     # 1. LIGANDO O FISCAL DE CHAVES ESTRANGEIRAS
     cursor.execute('PRAGMA foreign_keys = ON;')
 
-    # TABELA ALUNOS (Com a coluna 'ativo')
+    # TABELA ALUNOS
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS alunos (
             id_aluno INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -24,7 +24,7 @@ def inicializar_banco():
         )
     ''')
 
-    # TABELA PROFESSORES (Com a coluna 'ativo')
+    # TABELA PROFESSORES
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS professores (
             id_professor INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -45,7 +45,7 @@ def inicializar_banco():
         )
     ''')
 
-    # TABELA TURMAS (Com a coluna 'ativo')
+    # TABELA TURMAS
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS turmas (
             id_turma INTEGER PRIMARY KEY AUTOINCREMENT,
