@@ -1,6 +1,6 @@
 {% extends 'base.html' %}
 
-{% block titulo %}Lista de Alunos - Espaço ATO{% endblock %}
+{% block titulo %}Lista de Alunos - ATO Espaço de Dança{% endblock %}
 
 {% block conteudo %}
     <h2 class="mb-4">Lista de Alunos com Matrícula Ativa</h2>
@@ -13,6 +13,7 @@
                 <th>Contato 1</th>
                 <th>Contato 2</th>
                 <th>Responsável</th>
+                <th class="text-center">Ações</th> </tr>
             </tr>
         </thead>
 
@@ -23,6 +24,16 @@
                 <td>{{ aluno['contato_1'] }}</td>
                 <td>{{ aluno['contato_2'] }}</td>
                 <td>{{ aluno['responsavel'] }}</td>
+
+                <td class="text-center">
+                    <a href="/editar_aluno/{{ aluno['id_aluno'] }}" class="btn btn-warning btn-sm shadow-sm">
+                        ✏️ Editar
+                    </a>
+                    
+                    <a href="/inativar_aluno/{{ aluno['id_aluno'] }}" class="btn btn-danger btn-sm shadow-sm" title="Inativar" onclick="return confirm('Tem certeza que deseja inativar este aluno?');">
+                        🚫 Inativar
+                    </a>
+                </td>
             </tr>
             {% endfor %}
         </tbody>

@@ -114,7 +114,7 @@ def listar_alunos_inativos():
             
     return lista_inativos
 
-def deletar_aluno(id_aluno):
+def inativar_aluno(id_aluno):
     conexao, cursor = conectar_banco()
 
     sql = '''
@@ -150,6 +150,23 @@ def reativar_aluno(id_aluno):
 
     conexao.close()
     return mensagem
+
+def buscar_aluno(id_aluno):
+    conexao, cursor = conectar_banco()
+
+    cursor.execute('SELECT * FROM alunos WHERE id_aluno = ?', (id_aluno,))
+    
+    nomes_colunas = [descricao[0] for descricao in cursor.description]
+    
+    resultado = cursor.fetchone()
+    
+    conexao.close()
+
+    if resultado:
+        aluno_dicionario = dict(zip(nomes_colunas, resultado))
+        return aluno_dicionario
+    
+    return None
 
 
 ###### PROFESSORES ######
@@ -201,7 +218,7 @@ def listar_professores():
             "id_professor": p[0],
             "nome": p[1],
             "telefone": formatar_telefone(p[2]) if p[2] else "-",
-            "chave_pix": p[3]
+            "chave_pix": p[3] if p[3] else "-"
         })
             
     return lista_professores

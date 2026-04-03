@@ -1,5 +1,6 @@
 from flask import Flask, render_template, request, redirect, flash
-from operacoes import listar_turmas, cadastrar_aluno, cadastrar_professor, listar_alunos
+from operacoes import listar_turmas, cadastrar_aluno, cadastrar_professor, listar_alunos, listar_professores, inativar_aluno, buscar_aluno, atualizar_aluno
+import sqlite3
 
 app = Flask(__name__)
 app.secret_key = 'chave_secreta_espaco_ato'
@@ -23,10 +24,14 @@ def pagina_cadastrar_aluno():
         contato_2 = request.form.get('contato_2')
         responsavel = request.form.get('responsavel')
 
-        cadastrar_aluno(nome, cpf, rg, endereco, data_nascimento, email, contato_1, contato_2, responsavel)
-        flash('Aluno cadastrado com sucesso!', 'success')
-
-        return redirect('/cadastrar_aluno')
+        try:
+            cadastrar_aluno(nome, cpf, rg, endereco, data_nascimento, email, contato_1, contato_2, responsavel)
+            flash('Aluno cadastrado com sucesso!', 'success')
+            return redirect('/cadastrar_aluno')
+        
+        except sqlite3.IntegrityError:
+            flash("Atenção: Já existe um aluno cadastrado com esse CPF!", "danger")
+            return redirect('/cadastrar_aluno')
 
     return render_template('cadastrar_aluno.html')
 
@@ -35,6 +40,46 @@ def pagina_listar_alunos():
     alunos_banco = listar_alunos()
 
     return render_template('listar_alunos.html', lista_de_alunos=alunos_banco)
+
+@app.route('/inativar_aluno/<int:id_aluno>')
+def rota_inativar_aluno(id_aluno):
+    mensagem_retorno = inativar_aluno(id_aluno)
+    
+    flash(mensagem_retorno, 'success')
+    
+    return redirect('/alunos')
+
+@app.route('/editar_aluno/<int:id_aluno>', methods=['GET', 'POST'])
+def rota_editar_aluno(id_aluno):
+
+    rg_recebido = request.form.get('rg', '').strip()
+    rg_tratado = None if rg_recebido == "" else rg_recebido
+
+    if request.method == 'POST':
+        dados_novos = {
+            "nome": request.form.get('nome'),
+            "cpf": request.form.get('cpf'),
+            "rg": rg_tratado,
+            "endereco": request.form.get('endereco'),
+            "data_nascimento": request.form.get('data_nascimento'),
+            "email": request.form.get('email'),
+            "contato_1": request.form.get('contato_1'),
+            "contato_2": request.form.get('contato_2'),
+            "responsavel": request.form.get('responsavel')
+        }
+
+        mensagem = atualizar_aluno(id_aluno, **dados_novos)
+        
+        flash(mensagem, 'success')
+        return redirect('/alunos')
+
+    aluno_encontrado = buscar_aluno(id_aluno)
+    
+    if not aluno_encontrado:
+        flash("Aluno não encontrado!", "danger")
+        return redirect('/alunos')
+        
+    return render_template('editar_aluno.html', aluno=aluno_encontrado)
 
 @app.route('/cadastrar_professor', methods=['GET', 'POST'])
 def pagina_cadastrar_professor():
@@ -48,7 +93,13 @@ def pagina_cadastrar_professor():
 
         return redirect('/cadastrar_professor')
 
-    return render_template('cadastrar_professor.html')       
+    return render_template('cadastrar_professor.html')     
+
+@app.route('/professores')
+def pagina_listar_professores():
+    professores_banco = listar_professores()
+
+    return render_template('listar_professores.html', lista_de_professores=professores_banco)  
 
 if __name__ == '__main__':
     app.run(debug=True)

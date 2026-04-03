@@ -1,0 +1,29 @@
+{% extends 'base.html' %}
+
+{% block titulo %}Lista de Professores - ATO Espaço de Dança{% endblock %}
+
+{% block conteudo %}
+    <h2 class="mb-4">Lista de Professores Ativos</h2>
+
+    <table class="table table-hover mt-3 shadow-sm">
+        
+        <thead>
+            <tr>
+                <th>Nome</th>
+                <th>Telefone / WhatsApp</th>
+                <th>Chave PIX</th>
+            </tr>
+        </thead>
+
+        <tbody>
+            {% for prof in lista_de_professores %}
+            <tr>
+                <td>{{ prof['nome'] }}</td>
+                <td>{{ prof['telefone'] }}</td>
+                <td>{{ prof['chave_pix'] }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+
+    </table>
+{% endblock %}

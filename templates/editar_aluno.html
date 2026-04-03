@@ -1,0 +1,74 @@
+{% extends 'base.html' %}
+
+{% block titulo %}Editar Aluno - ATO Espaço de Dança{% endblock %}
+
+{% block conteudo %}
+    <h2 class="mb-4">Editar Aluno</h2>
+
+    <div class="card shadow-sm" style="max-width: 800px; margin: 0 auto;">
+        <div class="card-header text-black" style="background-color: #B0FEFE; font-weight: bold;">
+            <h5 class="mb-0">Editando os dados de: <strong>{{ aluno['nome'] }}</strong></h5>
+        </div>
+        
+        <div class="card-body">
+            
+            <form action="/editar_aluno/{{ aluno['id_aluno'] }}" method="POST">
+                
+                <div class="mb-3">
+                    <label for="nome" class="form-label">Nome Completo*</label>
+                    <input type="text" class="form-control" id="nome" name="nome" value="{{ aluno['nome'] }}" required>
+                </div>
+
+                <div class="mb-3">
+                    <label for="cpf" class="form-label">CPF</label>
+                    <input type="text" class="form-control" id="cpf" name="cpf" value="{{ aluno['cpf'] }}" onkeyup="mascaraCPF(event)" maxlength="14" placeholder="000.000.000-00">
+                </div>
+
+                <div class="mb-3">
+                    <label for="rg" class="form-label">RG</label>
+                    <input type="text" class="form-control" id="rg" name="rg" value="{{ aluno['rg'] }}">
+                </div>
+
+                <div class="mb-3">
+                    <label for="endereco" class="form-label">Endereço</label>
+                    <input type="text" class="form-control" id="endereco" name="endereco" value="{{ aluno['endereco'] }}">
+                </div>
+
+                <div class="mb-3">
+                    <label for="data_nascimento" class="form-label">Data de Nascimento</label>
+                    <input type="date" class="form-control" id="data_nascimento" name="data_nascimento" value="{{ aluno['data_nascimento'] }}" required>
+                </div>
+
+                <div class="mb-3">
+                    <label for="email" class="form-label">E-mail</label>
+                    <input type="email" class="form-control" id="email" name="email" value="{{ aluno['email'] }}">
+                </div>
+
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label for="contato_1" class="form-label">Telefone (Contato 1)*</label>
+                        <input type="tel" class="form-control" id="contato_1" name="contato_1" value="{{ aluno['contato_1'] }}" onkeyup="mascaraTelefone(event)" maxlength="15" required>
+                    </div>
+                    
+                    <div class="col-md-6 mb-3">
+                        <label for="contato_2" class="form-label">Telefone (Contato 2)</label>
+                        <input type="tel" class="form-control" id="contato_2" name="contato_2" value="{{ aluno['contato_2'] }}" onkeyup="mascaraTelefone(event)" maxlength="15">
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label for="responsavel" class="form-label">Responsável</label>
+                    <input type="text" class="form-control" id="responsavel" name="responsavel" value="{{ aluno['responsavel'] }}">
+                </div>
+                
+                <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-4">
+                    <a href="/" class="btn btn-outline-secondary">Página Inicial</a>
+                    <a href="/alunos" class="btn btn-outline-secondary">Cancelar</a>
+                    <button type="submit" class="btn badge-ato shadow-sm" style="font-size: 1rem; padding: 8px 20px;">Salvar Alterações</button>
+                </div>
+
+            </form>
+
+        </div>
+    </div>
+{% endblock %}
