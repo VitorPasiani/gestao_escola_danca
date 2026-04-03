@@ -1,71 +1,33 @@
-<!DOCTYPE html>
-<html lang="pt-br">
-<head>
-    <meta charset="UTF-8">
-    <title>Gestão - ATO Espaço de Dança</title>
-    
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-</head>
+{% extends 'base.html' %}
 
-<body>
+{% block titulo %}Painel Inicial - ATO Espaço de Dança{% endblock %}
 
-<nav class="navbar navbar-dark navbar-ato mb-4">
-        <div class="container">
-            <a class="navbar-brand" href="/">
-                <img src="{{ url_for('static', filename='imagens/logo+horizontal+09.svg') }}" alt="Logo Espaço ATO" height="40">
-            </a>
-        </div>
-    </nav>
-
-<div class="container mb-4 text-center">
-    <img src="{{ url_for('static', filename='imagens/banner_bailarinas.png') }}" class="img-fluid rounded shadow-sm" alt="Arte Bailarinas Espaço ATO" style="width: 100%; height: auto;">
-</div>
-
-    <div class="container">
-        
-        <div class="d-flex justify-content-between align-items-center mb-4">
-            <h2 class="mb-0">Painel Inicial</h2>
-            
-            <div>
-                <a href="/cadastrar_professor" class="btn btn-outline-secondary shadow-sm me-2" style="font-size: 1rem; padding: 8px 20px;">
-                    + Novo Professor
-                </a>
-                
-                <a href="/cadastrar_aluno" class="btn btn-outline-secondary shadow-sm me-2" style="font-size: 1rem; padding: 8px 20px;">
-                    + Novo Aluno
-                </a>
-            </div>
-        </div>
-        
-        <div class="card shadow-sm">
-            
-            <div class="card-header card-header-ato">
-                <h5 class="mb-0">Turmas Ativas no Momento</h5>
-            </div>
-            
-            <div class="card-body">
-                <ul class="list-group list-group-flush">
-                    
-                    {% for turma in lista_de_turmas %}
-                        <li class="list-group-item">
-                            
-                            <strong>{{ turma['nome_turma'] }}</strong> 
-                            
-                            <span class="text-muted">- Prof: {{ turma['nome_professor'] }}</span>
-                            
-                            <span class="badge badge-ato float-end">{{ turma['dias_semana'] }} às {{ turma['horario'] }}</span>
-                            
-                        </li>
-                    {% endfor %}
-                    
-                </ul>
-            </div>
-            
-        </div>
-
+{% block conteudo %}
+    <div class="mb-5 text-center">
+        <img src="{{ url_for('static', filename='imagens/banner_bailarinas.png') }}" alt="Banner Espaço ATO" class="img-fluid rounded shadow-sm">
     </div>
 
-</body>
-</html>
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="mb-0">Painel Inicial</h2>
+        <a href="/cadastrar_aluno" class="btn badge-ato shadow-sm" style="font-size: 1rem; padding: 8px 20px;">
+            + Novo Aluno
+        </a>
+    </div>
+
+    <div class="row">
+        {% for turma in lista_de_turmas %}
+        <div class="col-md-4 mb-3">
+            <div class="card h-100 shadow-sm" style="border-radius: 12px; overflow: hidden; border: none;">
+                <div class="card-header text-black" style="background-color: #B0FEFE; font-weight: bold;">
+                    {{ turma['nome_turma'] }}
+                </div>
+                <div class="card-body bg-light">
+                    <p class="card-text mb-1"><strong>Professor(a):</strong> {{ turma['professor'] }}</p>
+                    <p class="card-text mb-1"><strong>Dia:</strong> {{ turma['dia_semana'] }}</p>
+                    <p class="card-text"><strong>Horário:</strong> {{ turma['horario'] }}</p>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+{% endblock %}

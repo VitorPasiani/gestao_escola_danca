@@ -1,5 +1,5 @@
 from flask import Flask, render_template, request, redirect, flash
-from operacoes import listar_turmas, cadastrar_aluno, cadastrar_professor
+from operacoes import listar_turmas, cadastrar_aluno, cadastrar_professor, listar_alunos
 
 app = Flask(__name__)
 app.secret_key = 'chave_secreta_espaco_ato'
@@ -29,6 +29,12 @@ def pagina_cadastrar_aluno():
         return redirect('/cadastrar_aluno')
 
     return render_template('cadastrar_aluno.html')
+
+@app.route('/alunos')
+def pagina_listar_alunos():
+    alunos_banco = listar_alunos()
+
+    return render_template('listar_alunos.html', lista_de_alunos=alunos_banco)
 
 @app.route('/cadastrar_professor', methods=['GET', 'POST'])
 def pagina_cadastrar_professor():

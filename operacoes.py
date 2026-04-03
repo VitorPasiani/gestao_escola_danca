@@ -1,6 +1,7 @@
 import sqlite3
 import calendar
 from datetime import datetime
+import re
 
 ##### UTILS #####
 
@@ -18,6 +19,19 @@ def adicionar_meses(data_original, meses_para_adicionar):
     
     return data_original.replace(year=ano, month=mes, day=dia)
 
+def formatar_telefone(telefone):
+    if not telefone:
+        return "-"
+    
+    apenas_numeros = re.sub(r'\D', '', telefone)
+    
+    if len(apenas_numeros) == 11:
+        return f"({apenas_numeros[:2]}) {apenas_numeros[2:7]}-{apenas_numeros[7:]}"
+    
+    elif len(apenas_numeros) == 10:
+        return f"({apenas_numeros[:2]}) {apenas_numeros[2:6]}-{apenas_numeros[6:]}"
+    
+    return telefone
 
 ###### ALUNOS ######
 def cadastrar_aluno(nome, cpf=None, rg=None, endereco=None, data_nascimento=None, email=None, contato_1=None, contato_2=None, responsavel=None):
@@ -66,7 +80,7 @@ def atualizar_aluno(id_aluno, **kwargs):
 def listar_alunos():
     conexao, cursor = conectar_banco()
 
-    cursor.execute('SELECT id_aluno, nome, cpf, contato_1 FROM alunos WHERE ativo = 1')
+    cursor.execute('SELECT id_aluno, nome, contato_1, contato_2, responsavel FROM alunos WHERE ativo = 1')
     alunos_banco = cursor.fetchall()
     conexao.close()
 
@@ -75,8 +89,9 @@ def listar_alunos():
         lista_alunos.append({
             "id_aluno": a[0],
             "nome": a[1],
-            "cpf": a[2],
-            "contato": a[3]
+            "contato_1": formatar_telefone(a[2]),
+            "contato_2": formatar_telefone(a[3]),
+            "responsavel": a[4] if a[4] else "-"
         })
             
     return lista_alunos
@@ -185,7 +200,7 @@ def listar_professores():
         lista_professores.append({
             "id_professor": p[0],
             "nome": p[1],
-            "telefone": p[2],
+            "telefone": formatar_telefone(p[2]) if p[2] else "-",
             "chave_pix": p[3]
         })
             

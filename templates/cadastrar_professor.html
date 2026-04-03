@@ -1,28 +1,14 @@
-<!DOCTYPE html>
-<html lang="pt-br">
-<head>
-    <meta charset="UTF-8">
-    <title>Novo Professor - Espaço ATO</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-</head>
-<body>
+{% extends 'base.html' %}
 
-    <nav class="navbar navbar-dark navbar-ato mb-4">
-        <div class="container">
-            <a class="navbar-brand" href="/">
-                <img src="{{ url_for('static', filename='imagens/logo+horizontal+09.svg') }}" alt="Logo Espaço ATO" height="40">
-            </a>
+{% block titulo %}Cadastrar Professor - ATO Espaço de Dança{% endblock %}
+
+{% block conteudo %}
+    <h2 class="mb-4">Cadastrar Novo Professor</h2>
+
+    <div class="card shadow-sm" style="max-width: 600px; margin: 0 auto;">
+        <div class="card-header card-header-ato">
+            <h5 class="mb-0">Dados do Professor</h5>
         </div>
-    </nav>
-
-    <div class="container">
-        <h2 class="mb-4">Cadastrar Novo Professor</h2>
-
-        <div class="card shadow-sm" style="max-width: 600px; margin: 0 auto;">
-            <div class="card-header card-header-ato">
-                <h5 class="mb-0">Dados do Professor</h5>
-            </div>
             
             <div class="card-body">
                 
@@ -40,24 +26,24 @@
                 <form action="/cadastrar_professor" method="POST">
                     
                     <div class="mb-3">
-                        <label for="nome" class="form-label">Nome Completo</label>
+                        <label for="nome" class="form-label">Nome Completo*</label>
                         <input type="text" class="form-control" id="nome" name="nome" required>
                     </div>
                     
                     <div class="mb-3">
                         <label for="telefone" class="form-label">Telefone / WhatsApp</label>
-                        <input type="tel" class="form-control" id="telefone" name="telefone">
+                        <input type="tel" class="form-control" id="telefone" name="telefone" onkeyup="mascaraTelefone(event)" maxlength="15" placeholder="(00) 00000-0000">
                     </div>
                     
                     <div class="mb-3">
                         <label for="chave_pix" class="form-label">Chave PIX (Para repasses)</label>
                         <input type="text" class="form-control" id="chave_pix" name="chave_pix">
-                        <div class="form-text">Pode ser CPF, E-mail, Celular ou Aleatória.</div>
+                        <div class="form-text">CPF, E-mail, Celular ou Aleatória.</div>
                     </div>
                     
                     <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-4">
                         <a href="/" class="btn btn-outline-secondary">Página Inicial</a>
-                        <button type="reset" class="btn btn-light">Cancelar (Limpar)</button>
+                        <button type="reset" class="btn btn-outline-secondary">Cancelar (Limpar)</button>
                         <button type="submit" class="btn badge-ato" style="font-size: 1rem; padding: 8px 20px;">Salvar Professor</button>
                     </div>
 
@@ -65,8 +51,5 @@
 
             </div>
         </div>
-    </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-</body>
-</html>
+{% endblock %}

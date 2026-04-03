@@ -1,24 +1,8 @@
-<!DOCTYPE html>
-<html lang="pt-br">
-<head>
-    <meta charset="UTF-8">
-    <title>Novo Aluno - Espaço ATO</title>
-    
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-</head>
+{% extends 'base.html' %}
 
-<body>
+{% block titulo %}Cadastrar Aluno - ATO Espaço de Dança{% endblock %}
 
-    <nav class="navbar navbar-dark navbar-ato mb-4">
-        <div class="container">
-            <a class="navbar-brand" href="/">
-                <img src="{{ url_for('static', filename='imagens/logo+horizontal+09.svg') }}" alt="Logo Espaço ATO" height="40">
-            </a>
-        </div>
-    </nav>
-
-    <div class="container">
+{% block conteudo %}
         
         <h2 class="mb-4">Cadastrar novo aluno</h2>
 
@@ -74,12 +58,12 @@
 
                     <div class="mb-3">
                         <label for="contato_1" class="form-label">Telefone (Contato 1)*</label>
-                        <input type="tel" class="form-control" id="contato_1" name="contato_1" required>
+                        <input type="tel" class="form-control" id="contato_1" name="contato_1" onkeyup="mascaraTelefone(event)" maxlength="15" placeholder="(00) 00000-0000" required>
                     </div>
 
                     <div class="mb-3">
                         <label for="contato_2" class="form-label">Telefone (Contato 2)</label>
-                        <input type="tel" class="form-control" id="contato_2" name="contato_2">
+                        <input type="tel" class="form-control" id="contato_2" name="contato_2" onkeyup="mascaraTelefone(event)" maxlength="15" placeholder="(00) 00000-0000">
                     </div>
 
                     <div class="mb-3">
@@ -100,7 +84,4 @@
             </div>
         </div>
 
-    </div>
-
-</body>
-</html>
+{% endblock %}

@@ -1,0 +1,31 @@
+{% extends 'base.html' %}
+
+{% block titulo %}Lista de Alunos - Espaço ATO{% endblock %}
+
+{% block conteudo %}
+    <h2 class="mb-4">Lista de Alunos com Matrícula Ativa</h2>
+
+    <table class="table table-hover mt-3 shadow-sm">
+        
+        <thead>
+            <tr>
+                <th>Nome</th>
+                <th>Contato 1</th>
+                <th>Contato 2</th>
+                <th>Responsável</th>
+            </tr>
+        </thead>
+
+        <tbody>
+            {% for aluno in lista_de_alunos %}
+            <tr>
+                <td>{{ aluno['nome'] }}</td>
+                <td>{{ aluno['contato_1'] }}</td>
+                <td>{{ aluno['contato_2'] }}</td>
+                <td>{{ aluno['responsavel'] }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+
+    </table>
+{% endblock %}
