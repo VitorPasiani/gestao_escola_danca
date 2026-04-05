@@ -224,6 +224,19 @@ def listar_professores():
             
     return lista_professores
 
+def buscar_professor(id_professor):
+    conexao, cursor = conectar_banco()
+
+    cursor.execute('SELECT * FROM professores WHERE id_professor = ?', (id_professor,))
+    nomes_colunas = [descricao[0] for descricao in cursor.description]
+    resultado = cursor.fetchone()
+    
+    conexao.close()
+
+    if resultado:
+        return dict(zip(nomes_colunas, resultado))
+    return None
+
 def deletar_professor(id_professor):
     conexao, cursor = conectar_banco()
 

@@ -12,6 +12,7 @@
                 <th>Nome</th>
                 <th>Telefone / WhatsApp</th>
                 <th>Chave PIX</th>
+                <th class="text-center">Ações</th>
             </tr>
         </thead>
 
@@ -21,6 +22,16 @@
                 <td>{{ prof['nome'] }}</td>
                 <td>{{ prof['telefone'] }}</td>
                 <td>{{ prof['chave_pix'] }}</td>
+                
+                <td class="text-center">
+                    <a href="/editar_professor/{{ prof['id_professor'] }}" class="btn btn-warning btn-sm shadow-sm" title="Editar">
+                        Editar
+                    </a>
+                    
+                    <a href="/deletar_professor/{{ prof['id_professor'] }}" class="btn btn-danger btn-sm shadow-sm" title="Excluir" onclick="return confirm('Tem certeza que deseja excluir este professor do sistema?');">
+                        Excluir
+                    </a>
+                </td>
             </tr>
             {% endfor %}
         </tbody>

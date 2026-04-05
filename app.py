@@ -1,15 +1,18 @@
 from flask import Flask, render_template, request, redirect, flash
 from operacoes import (
-    listar_turmas, 
-    cadastrar_aluno, 
-    cadastrar_professor, 
+    cadastrar_aluno,  
     listar_alunos, 
-    listar_professores, 
     inativar_aluno, 
     buscar_aluno, 
     atualizar_aluno,
     listar_alunos_inativos,
-    reativar_aluno
+    reativar_aluno,
+    cadastrar_professor,
+    listar_professores,
+    deletar_professor,
+    buscar_professor,
+    atualizar_professor,
+    listar_turmas
 )
 
 import sqlite3
@@ -23,6 +26,7 @@ def pagina_inicial():
     turmas_ativas = listar_turmas()
     return render_template('index.html', nome_dinamico=escola, lista_de_turmas=turmas_ativas)
 
+### ALUNOS ###
 @app.route('/cadastrar_aluno', methods=['GET', 'POST'])
 def pagina_cadastrar_aluno():
     if request.method == 'POST':
@@ -107,6 +111,8 @@ def rota_editar_aluno(id_aluno):
         
     return render_template('editar_aluno.html', aluno=aluno_encontrado)
 
+
+### PROFESSORES ###
 @app.route('/cadastrar_professor', methods=['GET', 'POST'])
 def pagina_cadastrar_professor():
     if request.method == 'POST':
@@ -125,7 +131,34 @@ def pagina_cadastrar_professor():
 def pagina_listar_professores():
     professores_banco = listar_professores()
 
-    return render_template('listar_professores.html', lista_de_professores=professores_banco)  
+    return render_template('listar_professores.html', lista_de_professores=professores_banco)
+
+@app.route('/deletar_professor/<int:id_professor>')
+def rota_deletar_professor(id_professor):
+    mensagem = deletar_professor(id_professor)
+    flash(mensagem, 'success')
+    return redirect('/professores')
+
+@app.route('/editar_professor/<int:id_professor>', methods=['GET', 'POST'])
+def rota_editar_professor(id_professor):
+    if request.method == 'POST':
+        dados_novos = {
+            "nome": request.form.get('nome'),
+            "telefone": request.form.get('telefone'),
+            "chave_pix": request.form.get('chave_pix')
+        }
+        
+        mensagem = atualizar_professor(id_professor, **dados_novos)
+        flash(mensagem, 'success')
+        return redirect('/professores')
+
+    professor_encontrado = buscar_professor(id_professor)
+    
+    if not professor_encontrado:
+        flash("Professor não encontrado!", "danger")
+        return redirect('/professores')
+        
+    return render_template('editar_professor.html', professor=professor_encontrado)
 
 if __name__ == '__main__':
     app.run(debug=True)
