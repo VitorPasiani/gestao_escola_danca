@@ -1,0 +1,42 @@
+{% extends 'base.html' %}
+
+{% block titulo %}Alunos Inativos - ATO Espaço de Dança{% endblock %}
+
+{% block conteudo %}
+    <h2 class="mb-4 text-secondary">Arquivo: Alunos Inativos</h2>
+
+    <table class="table table-hover mt-3 shadow-sm">
+        
+        <thead class="table-light">
+            <tr>
+                <th>Nome</th>
+                <th>Contato 1</th>
+                <th>Contato 2</th>
+                <th>Responsável</th>
+                <th class="text-center">Ações</th>
+            </tr>
+        </thead>
+
+        <tbody>
+            {% for aluno in lista_de_alunos %}
+            <tr>
+                <td class="text-muted">{{ aluno['nome'] }}</td>
+                <td class="text-muted">{{ aluno['contato_1'] }}</td>
+                <td class="text-muted">{{ aluno['contato_2'] }}</td>
+                <td class="text-muted">{{ aluno['responsavel'] }}</td>
+                
+                <td class="text-center">
+                    <a href="/reativar_aluno/{{ aluno['id_aluno'] }}" class="btn btn-success btn-sm shadow-sm" title="Reativar Matrícula" onclick="return confirm('Deseja reativar a matrícula deste aluno?');">
+                        Reativar
+                    </a>
+                </td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="5" class="text-center text-muted py-4">Nenhum aluno inativo no momento.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+
+    </table>
+{% endblock %}

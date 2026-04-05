@@ -1,5 +1,17 @@
 from flask import Flask, render_template, request, redirect, flash
-from operacoes import listar_turmas, cadastrar_aluno, cadastrar_professor, listar_alunos, listar_professores, inativar_aluno, buscar_aluno, atualizar_aluno
+from operacoes import (
+    listar_turmas, 
+    cadastrar_aluno, 
+    cadastrar_professor, 
+    listar_alunos, 
+    listar_professores, 
+    inativar_aluno, 
+    buscar_aluno, 
+    atualizar_aluno,
+    listar_alunos_inativos,
+    reativar_aluno
+)
+
 import sqlite3
 
 app = Flask(__name__)
@@ -48,6 +60,20 @@ def rota_inativar_aluno(id_aluno):
     flash(mensagem_retorno, 'success')
     
     return redirect('/alunos')
+
+@app.route('/alunos_inativos')
+def pagina_alunos_inativos():
+    lista_banco = listar_alunos_inativos()
+    return render_template('listar_alunos_inativos.html', lista_de_alunos=lista_banco)
+
+@app.route('/reativar_aluno/<int:id_aluno>')
+def rota_reativar_aluno(id_aluno):
+    mensagem_retorno = reativar_aluno(id_aluno)
+
+    flash(mensagem_retorno, 'success')
+    
+    return redirect('/alunos_inativos')
+
 
 @app.route('/editar_aluno/<int:id_aluno>', methods=['GET', 'POST'])
 def rota_editar_aluno(id_aluno):

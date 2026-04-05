@@ -99,7 +99,7 @@ def listar_alunos():
 def listar_alunos_inativos():
     conexao, cursor = conectar_banco()
 
-    cursor.execute('SELECT id_aluno, nome, cpf, contato_1 FROM alunos WHERE ativo = 0')
+    cursor.execute('SELECT id_aluno, nome, contato_1, contato_2, responsavel FROM alunos WHERE ativo = 0')
     alunos_banco = cursor.fetchall()
     conexao.close()
 
@@ -108,8 +108,9 @@ def listar_alunos_inativos():
         lista_inativos.append({
             "id_aluno": a[0],
             "nome": a[1],
-            "cpf": a[2],
-            "contato": a[3]
+            "contato_1": formatar_telefone(a[2]),
+            "contato_2": formatar_telefone(a[3]),
+            "responsavel": a[4] if a[4] else "-"
         })
             
     return lista_inativos
