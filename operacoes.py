@@ -33,12 +33,12 @@ def formatar_telefone(telefone):
     
     return telefone
 
-def verificar_conflito_sala(sala, dias_semana_lista, hora_inicio_nova, hora_fim_nova):
+def verificar_conflito_sala(sala, dias_semana_lista, hora_inicio_nova, hora_fim_nova, id_turma_ignorada=None):
     conexao, cursor = conectar_banco()
     
     for dia in dias_semana_lista:
         sql = '''
-            SELECT nome_turma FROM turmas 
+            SELECT id_turma, nome_turma FROM turmas 
             WHERE sala = ? 
               AND dias_semana LIKE ? 
               AND ativo = 1
@@ -46,11 +46,17 @@ def verificar_conflito_sala(sala, dias_semana_lista, hora_inicio_nova, hora_fim_
               AND hora_fim > ?
         '''
         cursor.execute(sql, (sala, f'%{dia}%', hora_fim_nova, hora_inicio_nova))
-        resultado = cursor.fetchone()
+        resultados = cursor.fetchall()
         
-        if resultado:
-            conexao.close()
-            return f"A turma '{resultado[0]}' já está usando a {sala} na {dia} neste horário!"
+        for res in resultados:
+            id_conflito = res[0]
+            nome_conflito = res[1]
+            
+            if id_turma_ignorada and id_conflito == id_turma_ignorada:
+                continue
+            else:
+                conexao.close()
+                return f"A turma '{nome_conflito}' já está usando a {sala} na {dia} neste horário!"
             
     conexao.close()
     return None
@@ -410,15 +416,58 @@ def listar_turmas():
         
     return lista_turmas
 
-def deletar_turma(id_turma):
+def listar_turmas_inativas():
     conexao, cursor = conectar_banco()
-
-    sql = 'UPDATE turmas SET ativo = 0 WHERE id_turma = ?'
-    cursor.execute(sql, (id_turma,))
-    conexao.commit()
+    sql = '''
+        SELECT turmas.id_turma, turmas.nome_turma, professores.nome, turmas.sala, 
+               turmas.hora_inicio, turmas.hora_fim, turmas.dias_semana, 
+               turmas.valor_mensal_base, turmas.tipo_gestao
+        FROM turmas
+        LEFT JOIN professores ON turmas.id_professor = professores.id_professor
+        WHERE turmas.ativo = 0  -- Busca apenas inativas
+    '''
+    cursor.execute(sql)
+    turmas_banco = cursor.fetchall()
     conexao.close()
 
-    return "Turma inativada no sistema!"
+    lista_turmas = []
+    for t in turmas_banco:
+        lista_turmas.append({
+            "id_turma": t[0], "nome_turma": t[1], "nome_professor": t[2] if t[2] else "Sem Professor",
+            "sala": t[3], "horario": f"{t[4]} às {t[5]}", "dias_semana": t[6],
+            "valor_mensal_base": t[7], "tipo_gestao": t[8]
+        })
+    return lista_turmas
+
+def buscar_turma(id_turma):
+    conexao, cursor = conectar_banco()
+    cursor.execute('SELECT * FROM turmas WHERE id_turma = ?', (id_turma,))
+    nomes_colunas = [descricao[0] for descricao in cursor.description]
+    resultado = cursor.fetchone()
+    conexao.close()
+    if resultado:
+        return dict(zip(nomes_colunas, resultado))
+    return None
+
+def inativar_turma(id_turma):
+    conexao, cursor = conectar_banco()
+    cursor.execute('UPDATE turmas SET ativo = 0 WHERE id_turma = ?', (id_turma,))
+    conexao.commit()
+    conexao.close()
+    return "Turma inativada com sucesso!"
+
+def deletar_turma_definitivo(id_turma):
+    conexao, cursor = conectar_banco()
+    try:
+        cursor.execute('DELETE FROM turmas WHERE id_turma = ?', (id_turma,))
+        conexao.commit()
+        mensagem = ("Turma excluída permanentemente!", "success")
+    except sqlite3.IntegrityError:
+        mensagem = ("Não é possível excluir esta turma permanentemente pois existem pagamentos ou alunos atrelados a ela. Mantenha-a inativada.", "danger")
+    finally:
+        conexao.close()
+    
+    return mensagem
 
 
 ##### EVENTOS ######

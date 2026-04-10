@@ -14,6 +14,11 @@ from operacoes import (
     atualizar_professor,
     cadastrar_turma,
     listar_turmas,
+    listar_turmas_inativas,
+    atualizar_turma,
+    inativar_turma,
+    deletar_turma_definitivo,
+    buscar_turma,
     verificar_conflito_sala
 )
 
@@ -111,8 +116,7 @@ def rota_editar_aluno(id_aluno):
         flash("Aluno não encontrado!", "danger")
         return redirect('/alunos')
         
-    return render_template('editar_aluno.html', aluno=aluno_encontrado)
-
+    return render_template('cadastrar_aluno.html', aluno=aluno_encontrado, editando=True)
 
 ### PROFESSORES ###
 @app.route('/cadastrar_professor', methods=['GET', 'POST'])
@@ -160,7 +164,7 @@ def rota_editar_professor(id_professor):
         flash("Professor não encontrado!", "danger")
         return redirect('/professores')
         
-    return render_template('editar_professor.html', professor=professor_encontrado)
+    return render_template('cadastrar_professor.html', professor=professor_encontrado, editando=True)
 
 ## TURMAS ##
 @app.route('/cadastrar_turma', methods=['GET', 'POST'])
@@ -176,6 +180,13 @@ def rota_cadastrar_turma():
             'tipo_gestao': request.form.get('tipo_gestao'),
             'dias_semana': request.form.getlist('dias_semana')
         }
+
+        if not dados['dias_semana']:
+            flash("Por favor, selecione pelo menos um dia da semana.", "danger")
+            professores_ativos = listar_professores()
+            return render_template('cadastrar_turma.html', 
+                                 lista_professores=professores_ativos, 
+                                 valores_antigos=dados)
 
         conflito = verificar_conflito_sala(dados['sala'], dados['dias_semana'], dados['hora_inicio'], dados['hora_fim'])
         
@@ -204,5 +215,74 @@ def pagina_listar_turmas():
     turmas_banco = listar_turmas()
     return render_template('listar_turmas.html', lista_de_turmas=turmas_banco)
 
+@app.route('/deletar_turma/<int:id_turma>')
+def rota_deletar_turma(id_turma):
+    mensagem = inativar_turma(id_turma)
+    flash(mensagem, 'success')
+    return redirect('/turmas')
+
+@app.route('/editar_turma/<int:id_turma>', methods=['GET', 'POST'])
+def rota_editar_turma(id_turma):
+    if request.method == 'POST':
+        dados_novos = {
+            'nome_turma': request.form.get('nome_turma'),
+            'id_professor': request.form.get('id_professor'),
+            'sala': request.form.get('sala'),
+            'hora_inicio': request.form.get('hora_inicio'),
+            'hora_fim': request.form.get('hora_fim'),
+            'valor_mensal_base': request.form.get('valor_mensal_base'),
+            'tipo_gestao': request.form.get('tipo_gestao')
+        }
+        dias_semana_lista = request.form.getlist('dias_semana')
+
+        if not dias_semana_lista:
+            flash("Por favor, selecione pelo menos um dia da semana.", "danger")
+            return redirect(f'/editar_turma/{id_turma}')
+
+        conflito = verificar_conflito_sala(
+            dados_novos['sala'], dias_semana_lista, 
+            dados_novos['hora_inicio'], dados_novos['hora_fim'], 
+            id_turma_ignorada=id_turma
+        )
+        
+        if conflito:
+            flash(conflito, 'danger')
+            dados_novos['dias_semana'] = dias_semana_lista
+            professores = listar_professores()
+            return render_template('cadastrar_turma.html', lista_professores=professores, valores_antigos=dados_novos, editando=True, id_turma=id_turma)
+
+        dados_novos['dias_semana'] = ", ".join(dias_semana_lista)
+        mensagem = atualizar_turma(id_turma, **dados_novos)
+        
+        flash(mensagem, 'success')
+        return redirect('/turmas')
+
+    turma_existente = buscar_turma(id_turma)
+    if not turma_existente:
+        flash("Turma não encontrada!", "danger")
+        return redirect('/turmas')
+    
+    if turma_existente['dias_semana']:
+        turma_existente['dias_semana'] = turma_existente['dias_semana'].split(', ')
+    
+    professores = listar_professores()
+    return render_template('cadastrar_turma.html', 
+                           lista_professores=professores, 
+                           valores_antigos=turma_existente,
+                           editando=True,
+                           id_turma=id_turma)
+
+@app.route('/turmas_inativas')
+def pagina_turmas_inativas():
+    turmas_banco = listar_turmas_inativas()
+    return render_template('listar_turmas.html', lista_de_turmas=turmas_banco, inativas=True)
+
+@app.route('/excluir_turma/<int:id_turma>')
+def rota_excluir_turma(id_turma):
+    mensagem, categoria = deletar_turma_definitivo(id_turma)
+    flash(mensagem, categoria)
+    return redirect('/turmas_inativas')
+
+## MAIN ##
 if __name__ == '__main__':
     app.run(debug=True)

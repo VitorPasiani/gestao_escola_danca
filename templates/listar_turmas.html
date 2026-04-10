@@ -8,7 +8,6 @@
         .badge-ato {
             background-color: #B0FEFE;
             color: white;
-            /* Cria o contorno preto de meio pixel nas letras */
             -webkit-text-stroke: 0.5px black; 
             font-size: 0.85em;
             padding: 6px 10px;
@@ -23,7 +22,7 @@
         }
     </style>
 
-    <h2 class="mb-4">Turmas Ativas</h2>
+    <h2 class="mb-4">{% if inativas %}Arquivo Morto: Turmas{% else %}Turmas Ativas{% endif %}</h2>
 
     <table class="table table-hover mt-3 shadow-sm">
         <thead>
@@ -59,8 +58,12 @@
                 <td>R$ {{ turma['valor_mensal_base'] }}</td>
                 
                 <td class="text-center">
-                    <a href="/editar_turma/{{ turma['id_turma'] }}" class="btn btn-warning btn-sm shadow-sm" title="Editar">✏️</a>
-                    <a href="/deletar_turma/{{ turma['id_turma'] }}" class="btn btn-danger btn-sm shadow-sm" title="Excluir" onclick="return confirm('Deseja excluir esta turma?');">🗑️</a>
+                    {% if inativas %}
+                        <a href="/excluir_turma/{{ turma['id_turma'] }}" class="btn btn-danger btn-sm shadow-sm" title="Excluir Definitivamente" onclick="return confirm('Atenção: Esta ação apagará a turma do banco de dados para sempre. Deseja continuar?');">Excluir Definitivo 🗑️</a>
+                    {% else %}
+                        <a href="/editar_turma/{{ turma['id_turma'] }}" class="btn btn-warning btn-sm shadow-sm" title="Editar">✏️</a>
+                        <a href="/deletar_turma/{{ turma['id_turma'] }}" class="btn btn-danger btn-sm shadow-sm" title="Inativar" onclick="return confirm('Deseja inativar esta turma?');">🚫</a>
+                    {% endif %}
                 </td>
             </tr>
             {% else %}

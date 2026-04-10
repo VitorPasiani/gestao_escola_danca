@@ -4,7 +4,7 @@
 
 {% block conteudo %}
         
-        <h2 class="mb-4">Cadastrar novo aluno</h2>
+        <h2 class="mb-4">{% if editando %}Editar Aluno{% else %}Cadastrar novo aluno{% endif %}</h2>
 
         <div class="card shadow-sm" style="max-width: 600px; margin: 0 auto;">
             
@@ -13,62 +13,52 @@
             </div>
             
             <div class="card-body">
-                {% with messages = get_flashed_messages(with_categories=true) %}
-                  {% if messages %}
-                    {% for category, message in messages %}
-                      <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
-                        <strong>Pronto!</strong> {{ message }}
-                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                      </div>
-                    {% endfor %}
-                  {% endif %}
-                {% endwith %}
                 
-                <form action="/cadastrar_aluno" method="POST">
+                <form action="{% if editando %}/editar_aluno/{{ aluno['id_aluno'] }}{% else %}/cadastrar_aluno{% endif %}" method="POST">
                     
                     <div class="mb-3">
                         <label for="nome" class="form-label">Nome Completo*</label>
-                        <input type="text" class="form-control" id="nome" name="nome" required>
+                        <input type="text" class="form-control" id="nome" name="nome" value="{% if editando %}{{ aluno['nome'] }}{% endif %}" required>
                     </div>
                     
                     <div class="mb-3">
                         <label for="cpf" class="form-label">CPF</label>
-                        <input type="text" class="form-control" id="cpf" name="cpf" onkeyup="mascaraCPF(event)" maxlength="14" placeholder="000.000.000-00">
+                        <input type="text" class="form-control" id="cpf" name="cpf" value="{% if editando %}{{ aluno['cpf'] }}{% endif %}" onkeyup="mascaraCPF(event)" maxlength="14" placeholder="000.000.000-00">
                     </div>
 
                     <div class="mb-3">
                         <label for="rg" class="form-label">RG</label>
-                        <input type="text" class="form-control" id="rg" name="rg">
+                        <input type="text" class="form-control" id="rg" name="rg" value="{% if editando %}{{ aluno['rg'] }}{% endif %}">
                     </div>
 
                     <div class="mb-3">
                         <label for="endereco" class="form-label">Endereço</label>
-                        <input type="text" class="form-control" id="endereco" name="endereco">
+                        <input type="text" class="form-control" id="endereco" name="endereco" value="{% if editando %}{{ aluno['endereco'] }}{% endif %}">
                     </div>
 
                     <div class="mb-3">
                         <label for="data_nascimento" class="form-label">Data de Nascimento</label>
-                        <input type="date" class="form-control" id="data_nascimento" name="data_nascimento">
+                        <input type="date" class="form-control" id="data_nascimento" name="data_nascimento" value="{% if editando and aluno['data_nascimento'] %}{{ aluno['data_nascimento']|date('Y-m-d') }}{% endif %}">
                     </div>
 
                     <div class="mb-3">
                         <label for="email" class="form-label">E-mail</label>
-                        <input type="email" class="form-control" id="email" name="email">
+                        <input type="email" class="form-control" id="email" name="email" value="{% if editando %}{{ aluno['email'] }}{% endif %}">
                     </div>
 
                     <div class="mb-3">
                         <label for="contato_1" class="form-label">Telefone (Contato 1)*</label>
-                        <input type="tel" class="form-control" id="contato_1" name="contato_1" onkeyup="mascaraTelefone(event)" maxlength="15" placeholder="(00) 00000-0000" required>
+                        <input type="tel" class="form-control" id="contato_1" name="contato_1" value="{% if editando %}{{ aluno['contato_1'] }}{% endif %}" onkeyup="mascaraTelefone(event)" maxlength="15" placeholder="(00) 00000-0000" required>
                     </div>
 
                     <div class="mb-3">
                         <label for="contato_2" class="form-label">Telefone (Contato 2)</label>
-                        <input type="tel" class="form-control" id="contato_2" name="contato_2" onkeyup="mascaraTelefone(event)" maxlength="15" placeholder="(00) 00000-0000">
+                        <input type="tel" class="form-control" id="contato_2" name="contato_2" value="{% if editando %}{{ aluno['contato_2'] }}{% endif %}" onkeyup="mascaraTelefone(event)" maxlength="15" placeholder="(00) 00000-0000">
                     </div>
 
                     <div class="mb-3">
                         <label for="responsavel" class="form-label">Responsável</label>
-                        <input type="text" class="form-control" id="responsavel" name="responsavel">
+                        <input type="text" class="form-control" id="responsavel" name="responsavel" value="{% if editando %}{{ aluno['responsavel'] }}{% endif %}">
                     </div>
 
                     <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-4">
