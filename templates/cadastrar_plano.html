@@ -1,0 +1,48 @@
+{% extends 'base.html' %}
+
+{% block titulo %}
+    {% if editando %}Editar Plano{% else %}Novo Plano{% endif %} - ATO Espaço de Dança
+{% endblock %}
+
+{% block conteudo %}
+    <h2 class="mb-4">{% if editando %}Editar Plano{% else %}Cadastrar Novo Plano{% endif %}</h2>
+
+    <div class="card shadow-sm" style="max-width: 600px; margin: 0 auto;">
+        <div class="card-body">
+            
+            <form action="{% if editando %}/editar_plano/{{ id_plano }}{% else %}/cadastrar_plano{% endif %}" method="POST">
+                
+                <div class="mb-3">
+                    <label for="nome_plano" class="form-label">Nome do Plano</label>
+                    <input type="text" class="form-control" id="nome_plano" name="nome_plano" 
+                           value="{{ valores_antigos.get('nome_plano', '') }}" 
+                           placeholder="Ex: Plano Semestral" required>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label for="percentual_desconto" class="form-label">Desconto (Decimal)</label>
+                        <input type="number" step="0.01" class="form-control" id="percentual_desconto" name="percentual_desconto" 
+                               value="{{ valores_antigos.get('percentual_desconto', '') }}" 
+                               placeholder="Ex: 0.15 para 15%" required>
+                        <div class="form-text">Use 0.15 para 15%, 0.10 para 10%.</div>
+                    </div>
+
+                    <div class="col-md-6 mb-3">
+                        <label for="duracao_meses" class="form-label">Duração (Meses)</label>
+                        <input type="number" class="form-control" id="duracao_meses" name="duracao_meses" 
+                               value="{{ valores_antigos.get('duracao_meses', '') }}" 
+                               placeholder="Ex: 6" required>
+                    </div>
+                </div>
+
+                <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-4">
+                    <a href="/planos" class="btn btn-outline-secondary">Cancelar</a>
+                    <button type="submit" class="btn badge-ato" style="font-size: 1rem; padding: 8px 20px;">Salvar Plano</button>
+                </div>
+
+            </form>
+
+        </div>
+    </div>
+{% endblock %}

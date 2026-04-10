@@ -41,7 +41,8 @@ def inicializar_banco():
             id_plano INTEGER PRIMARY KEY AUTOINCREMENT,
             nome_plano TEXT NOT NULL,
             percentual_desconto REAL NOT NULL,
-            duracao_meses INTEGER DEFAULT 1
+            duracao_meses INTEGER DEFAULT 1,
+            ativo INTEGER DEFAULT 1
         )
     ''')
 

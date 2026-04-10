@@ -314,8 +314,7 @@ def atualizar_plano(id_plano, **kwargs):
 
 def listar_planos():
     conexao, cursor = conectar_banco()
-
-    cursor.execute('SELECT id_plano, nome_plano, percentual_desconto, duracao_meses FROM planos')
+    cursor.execute('SELECT id_plano, nome_plano, percentual_desconto, duracao_meses FROM planos WHERE ativo = 1')
     planos_banco = cursor.fetchall()
     conexao.close()
 
@@ -327,19 +326,53 @@ def listar_planos():
             "percentual_desconto": p[2],
             "duracao_meses": p[3]
         })
-            
     return lista_planos
 
-def deletar_plano(id_plano):
+def listar_planos_inativos():
     conexao, cursor = conectar_banco()
-
-    sql = 'DELETE FROM planos WHERE id_plano = ?'
-    cursor.execute(sql, (id_plano,))
-    conexao.commit()
+    cursor.execute('SELECT id_plano, nome_plano, percentual_desconto, duracao_meses FROM planos WHERE ativo = 0')
+    planos_banco = cursor.fetchall()
     conexao.close()
 
-    return "Plano excluído do sistema!"
+    lista_planos = []
+    for p in planos_banco:
+        lista_planos.append({
+            "id_plano": p[0],
+            "nome_plano": p[1],
+            "percentual_desconto": p[2],
+            "duracao_meses": p[3]
+        })
+    return lista_planos
 
+def inativar_plano(id_plano):
+    conexao, cursor = conectar_banco()
+    cursor.execute('UPDATE planos SET ativo = 0 WHERE id_plano = ?', (id_plano,))
+    conexao.commit()
+    conexao.close()
+    return "Plano inativado com sucesso!"
+
+def deletar_plano_definitivo(id_plano):
+    conexao, cursor = conectar_banco()
+    try:
+        cursor.execute('DELETE FROM planos WHERE id_plano = ?', (id_plano,))
+        conexao.commit()
+        mensagem = ("Plano excluído permanentemente!", "success")
+    except sqlite3.IntegrityError:
+        mensagem = ("Não é possível excluir este plano permanentemente pois existem pagamentos atrelados a ele. Mantenha-o inativado.", "danger")
+    finally:
+        conexao.close()
+    
+    return mensagem
+
+def buscar_plano(id_plano):
+    conexao, cursor = conectar_banco()
+    cursor.execute('SELECT * FROM planos WHERE id_plano = ?', (id_plano,))
+    nomes_colunas = [descricao[0] for descricao in cursor.description]
+    resultado = cursor.fetchone()
+    conexao.close()
+    if resultado:
+        return dict(zip(nomes_colunas, resultado))
+    return None
 
 ###### TURMAS ######
 def cadastrar_turma(nome_turma, tipo_gestao, sala, id_professor=None, hora_inicio=None, hora_fim=None, dias_semana=None, valor_mensal_base=None, is_particular=False, cronograma=None, valor_por_aula=None):

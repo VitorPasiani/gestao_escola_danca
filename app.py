@@ -19,7 +19,14 @@ from operacoes import (
     inativar_turma,
     deletar_turma_definitivo,
     buscar_turma,
-    verificar_conflito_sala
+    verificar_conflito_sala,
+    cadastrar_plano,
+    atualizar_plano,
+    listar_planos,
+    inativar_plano,
+    buscar_plano,
+    deletar_plano_definitivo,
+    listar_planos_inativos
 )
 
 import sqlite3
@@ -75,7 +82,7 @@ def rota_inativar_aluno(id_aluno):
 @app.route('/alunos_inativos')
 def pagina_alunos_inativos():
     lista_banco = listar_alunos_inativos()
-    return render_template('listar_alunos_inativos.html', lista_de_alunos=lista_banco)
+    return render_template('listar_alunos.html', lista_de_alunos=lista_banco, inativos=True)
 
 @app.route('/reativar_aluno/<int:id_aluno>')
 def rota_reativar_aluno(id_aluno):
@@ -166,7 +173,7 @@ def rota_editar_professor(id_professor):
         
     return render_template('cadastrar_professor.html', professor=professor_encontrado, editando=True)
 
-## TURMAS ##
+### TURMAS ###
 @app.route('/cadastrar_turma', methods=['GET', 'POST'])
 def rota_cadastrar_turma():
     if request.method == 'POST':
@@ -282,6 +289,62 @@ def rota_excluir_turma(id_turma):
     mensagem, categoria = deletar_turma_definitivo(id_turma)
     flash(mensagem, categoria)
     return redirect('/turmas_inativas')
+
+### PLANOS ###
+@app.route('/cadastrar_plano', methods=['GET', 'POST'])
+def pagina_cadastrar_plano():
+    if request.method == 'POST':
+        nome_plano = request.form.get('nome_plano')
+        percentual_desconto = request.form.get('percentual_desconto')
+        duracao_meses = request.form.get('duracao_meses')
+
+        mensagem = cadastrar_plano(nome_plano, percentual_desconto, duracao_meses)
+        flash(mensagem, 'success')
+        return redirect('/planos')
+
+    return render_template('cadastrar_plano.html', valores_antigos={})
+
+@app.route('/planos')
+def pagina_listar_planos():
+    planos_banco = listar_planos()
+    return render_template('listar_planos.html', lista_de_planos=planos_banco)
+
+@app.route('/excluir_plano/<int:id_plano>')
+def rota_excluir_plano(id_plano):
+    mensagem, categoria = deletar_plano_definitivo(id_plano)
+    flash(mensagem, categoria)
+    return redirect('/planos_inativos')
+
+@app.route('/inativar_plano/<int:id_plano>')
+def rota_inativar_plano(id_plano):
+    mensagem = inativar_plano(id_plano)
+    flash(mensagem, 'success')
+    return redirect('/planos')
+
+@app.route('/planos_inativos')
+def pagina_planos_inativos():
+    planos_banco = listar_planos_inativos()
+    return render_template('listar_planos.html', lista_de_planos=planos_banco, inativos=True)
+
+@app.route('/editar_plano/<int:id_plano>', methods=['GET', 'POST'])
+def rota_editar_plano(id_plano):
+    if request.method == 'POST':
+        dados_novos = {
+            "nome_plano": request.form.get('nome_plano'),
+            "percentual_desconto": request.form.get('percentual_desconto'),
+            "duracao_meses": request.form.get('duracao_meses')
+        }
+        
+        mensagem = atualizar_plano(id_plano, **dados_novos)
+        flash(mensagem, 'success')
+        return redirect('/planos')
+
+    plano_encontrado = buscar_plano(id_plano)
+    if not plano_encontrado:
+        flash("Plano não encontrado!", "danger")
+        return redirect('/planos')
+        
+    return render_template('cadastrar_plano.html', valores_antigos=plano_encontrado, editando=True, id_plano=id_plano)
 
 ## MAIN ##
 if __name__ == '__main__':

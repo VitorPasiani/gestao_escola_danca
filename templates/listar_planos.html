@@ -1,0 +1,56 @@
+{% extends 'base.html' %}
+
+{% block titulo %}
+    {% if inativos %}Planos Inativos{% else %}Planos Ativos{% endif %} - ATO Espaço de Dança
+{% endblock %}
+
+{% block conteudo %}
+    <h2 class="mb-4 {% if inativos %}text-secondary{% endif %}">
+        {% if inativos %}Arquivo Morto: Planos Inativos{% else %}Planos Ativos{% endif %}
+    </h2>
+
+    <div class="d-flex justify-content-end mb-3">
+        {% if not inativos %}
+            <a href="/cadastrar_plano" class="btn badge-ato shadow-sm">+ Novo Plano</a>
+        {% endif %}
+    </div>
+
+    <table class="table table-hover shadow-sm">
+        <thead class="{% if inativos %}table-light{% endif %}">
+            <tr>
+                <th>Nome do Plano</th>
+                <th class="text-center">Desconto (%)</th>
+                <th class="text-center">Duração</th>
+                <th class="text-center">Ações</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for plano in lista_de_planos %}
+            <tr>
+                <td class="fw-bold {% if inativos %}text-muted{% endif %}">{{ plano['nome_plano'] }}</td>
+                
+                <td class="text-center {% if inativos %}text-muted{% endif %}">
+                    {{ (plano['percentual_desconto'] * 100) }}%
+                </td>
+                
+                <td class="text-center {% if inativos %}text-muted{% endif %}">
+                    {{ plano['duracao_meses'] }} meses
+                </td>
+                
+                <td class="text-center">
+                    {% if inativos %}
+                        <a href="/excluir_plano/{{ plano['id_plano'] }}" class="btn btn-danger btn-sm shadow-sm" title="Excluir Definitivamente" onclick="return confirm('Atenção: Esta ação apagará o plano do banco de dados para sempre. Deseja continuar?');">🗑️ Excluir Definitivo</a>
+                    {% else %}
+                        <a href="/editar_plano/{{ plano['id_plano'] }}" class="btn btn-warning btn-sm shadow-sm" title="Editar">✏️</a>
+                        <a href="/inativar_plano/{{ plano['id_plano'] }}" class="btn btn-danger btn-sm shadow-sm" title="Inativar" onclick="return confirm('Deseja inativar este plano?');">🚫</a>
+                    {% endif %}
+                </td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="4" class="text-center text-muted py-4">Nenhum plano {% if inativos %}inativo{% else %}cadastrado{% endif %} no momento.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+{% endblock %}
