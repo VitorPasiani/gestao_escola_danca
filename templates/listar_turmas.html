@@ -1,0 +1,73 @@
+{% extends 'base.html' %}
+
+{% block titulo %}Turmas - ATO Espaço de Dança{% endblock %}
+
+{% block conteudo %}
+
+    <style>
+        .badge-ato {
+            background-color: #B0FEFE;
+            color: white;
+            /* Cria o contorno preto de meio pixel nas letras */
+            -webkit-text-stroke: 0.5px black; 
+            font-size: 0.85em;
+            padding: 6px 10px;
+        }
+        
+        .badge-parceiro {
+            background-color: #f5c5d1;
+            color: black;
+            -webkit-text-stroke: 0.5px black;
+            font-size: 0.85em;
+            padding: 6px 10px;
+        }
+    </style>
+
+    <h2 class="mb-4">Turmas Ativas</h2>
+
+    <table class="table table-hover mt-3 shadow-sm">
+        <thead>
+            <tr>
+                <th>Turma</th>
+                <th>Professor</th>
+                <th>Sala</th> <th>Dias / Horário</th>
+                <th>Tipo de Gestão</th>
+                <th>Valor Mensal</th>
+                <th class="text-center">Ações</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for turma in lista_de_turmas %}
+            <tr>
+                <td class="fw-bold">{{ turma['nome_turma'] }}</td>
+                <td>{{ turma['nome_professor'] }}</td>
+                
+                <td><span class="badge bg-secondary">{{ turma['sala'] }}</span></td> 
+                
+                <td>{{ turma['dias_semana'] }} - {{ turma['horario'] }}</td>
+                
+                <td>
+                    {% if turma['tipo_gestao'] == 'Propria' %}
+                        <span class="badge badge-ato">Turma ATO</span>
+                    {% elif turma['tipo_gestao'] == 'Parceiro' %}
+                        <span class="badge badge-parceiro">Turma Professor ATO</span>
+                    {% else %}
+                        <span class="badge bg-secondary">{{ turma['tipo_gestao'] }}</span>
+                    {% endif %}
+                </td>
+                
+                <td>R$ {{ turma['valor_mensal_base'] }}</td>
+                
+                <td class="text-center">
+                    <a href="/editar_turma/{{ turma['id_turma'] }}" class="btn btn-warning btn-sm shadow-sm" title="Editar">✏️</a>
+                    <a href="/deletar_turma/{{ turma['id_turma'] }}" class="btn btn-danger btn-sm shadow-sm" title="Excluir" onclick="return confirm('Deseja excluir esta turma?');">🗑️</a>
+                </td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="5" class="text-center text-muted py-4">Nenhuma turma cadastrada.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+{% endblock %}

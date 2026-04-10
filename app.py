@@ -12,7 +12,9 @@ from operacoes import (
     deletar_professor,
     buscar_professor,
     atualizar_professor,
-    listar_turmas
+    cadastrar_turma,
+    listar_turmas,
+    verificar_conflito_sala
 )
 
 import sqlite3
@@ -159,6 +161,48 @@ def rota_editar_professor(id_professor):
         return redirect('/professores')
         
     return render_template('editar_professor.html', professor=professor_encontrado)
+
+## TURMAS ##
+@app.route('/cadastrar_turma', methods=['GET', 'POST'])
+def rota_cadastrar_turma():
+    if request.method == 'POST':
+        dados = {
+            'nome_turma': request.form.get('nome_turma'),
+            'id_professor': request.form.get('id_professor'),
+            'sala': request.form.get('sala'),
+            'hora_inicio': request.form.get('hora_inicio'),
+            'hora_fim': request.form.get('hora_fim'),
+            'valor_mensal_base': request.form.get('valor_mensal_base'),
+            'tipo_gestao': request.form.get('tipo_gestao'),
+            'dias_semana': request.form.getlist('dias_semana')
+        }
+
+        conflito = verificar_conflito_sala(dados['sala'], dados['dias_semana'], dados['hora_inicio'], dados['hora_fim'])
+        
+        if conflito:
+            flash(conflito, 'danger')
+            professores_ativos = listar_professores()
+            return render_template('cadastrar_turma.html', 
+                                 lista_professores=professores_ativos, 
+                                 valores_antigos=dados)
+
+        dias_semana_texto = ", ".join(dados['dias_semana'])
+        mensagem = cadastrar_turma(
+            dados['nome_turma'], dados['tipo_gestao'], dados['sala'], 
+            dados['id_professor'], dados['hora_inicio'], dados['hora_fim'], 
+            dias_semana_texto, dados['valor_mensal_base']
+        )
+        
+        flash(mensagem, 'success')
+        return redirect('/turmas')
+
+    professores_ativos = listar_professores()
+    return render_template('cadastrar_turma.html', lista_professores=professores_ativos, valores_antigos={})
+
+@app.route('/turmas')
+def pagina_listar_turmas():
+    turmas_banco = listar_turmas()
+    return render_template('listar_turmas.html', lista_de_turmas=turmas_banco)
 
 if __name__ == '__main__':
     app.run(debug=True)

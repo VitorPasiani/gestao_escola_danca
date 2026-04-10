@@ -12,11 +12,13 @@ print(cadastrar_plano(nome_plano="Semestral", percentual_desconto=0.15, duracao_
 
 # 4. Cadastrando uma Turma (Ligando ao Professor ID 1)
 print(cadastrar_turma(
-    nome_turma="Jazz Adulto Iniciante", 
-    tipo_gestao="Parceiro", 
-    id_professor=1, 
-    horario="19:30", 
-    dias_semana="Terça e Quinta", 
+    nome_turma="Jazz Adulto Iniciante",
+    tipo_gestao="Parceiro",
+    sala="Sala Grande",
+    id_professor=1,
+    hora_inicio="19:30",
+    hora_fim="21:00",
+    dias_semana="Terça, Quinta",
     valor_mensal_base=150.00
 ))
 

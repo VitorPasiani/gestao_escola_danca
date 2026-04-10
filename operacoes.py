@@ -33,6 +33,28 @@ def formatar_telefone(telefone):
     
     return telefone
 
+def verificar_conflito_sala(sala, dias_semana_lista, hora_inicio_nova, hora_fim_nova):
+    conexao, cursor = conectar_banco()
+    
+    for dia in dias_semana_lista:
+        sql = '''
+            SELECT nome_turma FROM turmas 
+            WHERE sala = ? 
+              AND dias_semana LIKE ? 
+              AND ativo = 1
+              AND hora_inicio < ? 
+              AND hora_fim > ?
+        '''
+        cursor.execute(sql, (sala, f'%{dia}%', hora_fim_nova, hora_inicio_nova))
+        resultado = cursor.fetchone()
+        
+        if resultado:
+            conexao.close()
+            return f"A turma '{resultado[0]}' já está usando a {sala} na {dia} neste horário!"
+            
+    conexao.close()
+    return None
+
 ###### ALUNOS ######
 def cadastrar_aluno(nome, cpf=None, rg=None, endereco=None, data_nascimento=None, email=None, contato_1=None, contato_2=None, responsavel=None):
     conexao, cursor = conectar_banco()
@@ -314,14 +336,14 @@ def deletar_plano(id_plano):
 
 
 ###### TURMAS ######
-def cadastrar_turma(nome_turma, tipo_gestao, id_professor=None, horario=None, dias_semana=None, valor_mensal_base=None, is_particular=False, cronograma=None, valor_por_aula=None):
+def cadastrar_turma(nome_turma, tipo_gestao, sala, id_professor=None, hora_inicio=None, hora_fim=None, dias_semana=None, valor_mensal_base=None, is_particular=False, cronograma=None, valor_por_aula=None):
     conexao, cursor = conectar_banco()
 
     sql = '''
-        INSERT INTO turmas (nome_turma, id_professor, horario, dias_semana, valor_mensal_base, tipo_gestao, is_particular, cronograma, valor_por_aula)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO turmas (nome_turma, id_professor, sala, hora_inicio, hora_fim, dias_semana, valor_mensal_base, tipo_gestao, is_particular, cronograma, valor_por_aula)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     '''
-    valores = (nome_turma, id_professor, horario, dias_semana, valor_mensal_base, tipo_gestao, is_particular, cronograma, valor_por_aula)
+    valores = (nome_turma, id_professor, sala, hora_inicio, hora_fim, dias_semana, valor_mensal_base, tipo_gestao, is_particular, cronograma, valor_por_aula)
 
     cursor.execute(sql, valores)
     conexao.commit()
@@ -359,9 +381,12 @@ def listar_turmas():
             turmas.id_turma,
             turmas.nome_turma,
             professores.nome,
-            turmas.horario,
+            turmas.sala,
+            turmas.hora_inicio,
+            turmas.hora_fim,
             turmas.dias_semana,
-            turmas.valor_mensal_base
+            turmas.valor_mensal_base,
+            turmas.tipo_gestao
         FROM turmas
         LEFT JOIN professores ON turmas.id_professor = professores.id_professor
         WHERE turmas.ativo = 1
@@ -376,9 +401,11 @@ def listar_turmas():
             "id_turma": t[0],
             "nome_turma": t[1],
             "nome_professor": t[2] if t[2] else "Sem Professor",
-            "horario": t[3],
-            "dias_semana": t[4],
-            "valor_mensal_base": t[5]
+            "sala": t[3],
+            "horario": f"{t[4]} às {t[5]}", 
+            "dias_semana": t[6],
+            "valor_mensal_base": t[7],
+            "tipo_gestao": t[8]
         })
         
     return lista_turmas
