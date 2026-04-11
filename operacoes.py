@@ -123,7 +123,7 @@ def atualizar_aluno(id_aluno, **kwargs):
 def listar_alunos():
     conexao, cursor = conectar_banco()
 
-    cursor.execute('SELECT id_aluno, nome, contato_1, contato_2, responsavel FROM alunos WHERE ativo = 1')
+    cursor.execute('SELECT id_aluno, nome, contato_1, contato_2, responsavel FROM alunos WHERE ativo = 1 ORDER BY nome ASC')
     alunos_banco = cursor.fetchall()
     conexao.close()
 
@@ -142,7 +142,7 @@ def listar_alunos():
 def listar_alunos_inativos():
     conexao, cursor = conectar_banco()
 
-    cursor.execute('SELECT id_aluno, nome, contato_1, contato_2, responsavel FROM alunos WHERE ativo = 0')
+    cursor.execute('SELECT id_aluno, nome, contato_1, contato_2, responsavel FROM alunos WHERE ativo = 0 ORDER BY nome ASC')
     alunos_banco = cursor.fetchall()
     conexao.close()
 
@@ -252,7 +252,7 @@ def atualizar_professor(id_professor, **kwargs):
 def listar_professores():
     conexao, cursor = conectar_banco()
 
-    cursor.execute('SELECT id_professor, nome, telefone, chave_pix FROM professores WHERE ativo = 1')
+    cursor.execute('SELECT id_professor, nome, telefone, chave_pix FROM professores WHERE ativo = 1 ORDER BY nome ASC')
     profs_banco = cursor.fetchall()
     conexao.close()
 
@@ -329,7 +329,7 @@ def atualizar_plano(id_plano, **kwargs):
 
 def listar_planos():
     conexao, cursor = conectar_banco()
-    cursor.execute('SELECT id_plano, nome_plano, percentual_desconto, duracao_meses FROM planos WHERE ativo = 1')
+    cursor.execute('SELECT id_plano, nome_plano, percentual_desconto, duracao_meses FROM planos WHERE ativo = 1 ORDER BY nome_plano ASC')
     planos_banco = cursor.fetchall()
     conexao.close()
 
@@ -345,7 +345,7 @@ def listar_planos():
 
 def listar_planos_inativos():
     conexao, cursor = conectar_banco()
-    cursor.execute('SELECT id_plano, nome_plano, percentual_desconto, duracao_meses FROM planos WHERE ativo = 0')
+    cursor.execute('SELECT id_plano, nome_plano, percentual_desconto, duracao_meses FROM planos WHERE ativo = 0 ORDER BY nome_plano ASC')
     planos_banco = cursor.fetchall()
     conexao.close()
 
@@ -444,6 +444,7 @@ def listar_turmas():
         FROM turmas
         LEFT JOIN professores ON turmas.id_professor = professores.id_professor
         WHERE turmas.ativo = 1
+        ORDER BY turmas.nome_turma ASC
     '''
     cursor.execute(sql)
     turmas_banco = cursor.fetchall()
@@ -472,7 +473,8 @@ def listar_turmas_inativas():
                turmas.valor_mensal_base, turmas.tipo_gestao
         FROM turmas
         LEFT JOIN professores ON turmas.id_professor = professores.id_professor
-        WHERE turmas.ativo = 0  -- Busca apenas inativas
+        WHERE turmas.ativo = 0
+        ORDER BY turmas.nome_turma ASC
     '''
     cursor.execute(sql)
     turmas_banco = cursor.fetchall()
@@ -554,7 +556,7 @@ def atualizar_evento(id_evento, **kwargs):
 def listar_eventos():
     conexao, cursor = conectar_banco()
 
-    cursor.execute('SELECT id_evento, nome_evento, data_evento FROM eventos')
+    cursor.execute('SELECT id_evento, nome_evento, data_evento FROM eventos ORDER BY nome_evento ASC')
     eventos_banco = cursor.fetchall()
     conexao.close()
 

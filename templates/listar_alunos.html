@@ -7,47 +7,49 @@
         {% if inativos %}Arquivo Morto: Alunos Inativos{% else %}Lista de Alunos com Matrícula Ativa{% endif %}
     </h2>
 
-    <table class="table table-hover mt-3 shadow-sm">
-        
+    <table class="table table-hover mt-3 shadow-sm tabela-datatable">
         <thead class="{% if inativos %}table-light{% endif %}">
             <tr>
                 <th>Nome</th>
+                <th>CPF</th>
+                <th>Data de Nasc.</th>
                 <th>Contato 1</th>
                 <th>Contato 2</th>
                 <th>Responsável</th>
+                <th>Turmas</th> 
+                <th>Planos</th> 
                 <th class="text-center">Ações</th>
             </tr>
         </thead>
-
         <tbody>
             {% for aluno in lista_de_alunos %}
             <tr>
-                <td class="{% if inativos %}text-muted{% endif %}">{{ aluno['nome'] }}</td>
-                <td class="{% if inativos %}text-muted{% endif %}">{{ aluno['contato_1'] }}</td>
-                <td class="{% if inativos %}text-muted{% endif %}">{{ aluno['contato_2'] }}</td>
-                <td class="{% if inativos %}text-muted{% endif %}">{{ aluno['responsavel'] }}</td>
+                <td class="{% if inativos %}text-muted{% endif %} fw-bold">{{ aluno['nome'] }}</td>
+                <td class="{% if inativos %}text-muted{% endif %}">{{ aluno['cpf'] or '-' }}</td>
+                <td class="{% if inativos %}text-muted{% endif %}">
+                    {% if aluno['data_nascimento'] %}
+                        {{ aluno['data_nascimento'][8:10] }}/{{ aluno['data_nascimento'][5:7] }}/{{ aluno['data_nascimento'][0:4] }}
+                    {% else %}
+                        -
+                    {% endif %}
+                </td>
+                <td class="{% if inativos %}text-muted{% endif %}">{{ aluno['contato_1'] or '-' }}</td>
+                <td class="{% if inativos %}text-muted{% endif %}">{{ aluno['contato_2'] or '-' }}</td>
+                <td class="{% if inativos %}text-muted{% endif %}">{{ aluno['responsavel'] or '-' }}</td>
+                
+                <td class="{% if inativos %}text-muted{% endif %} text-center">-</td> 
+                <td class="{% if inativos %}text-muted{% endif %} text-center">-</td> 
 
                 <td class="text-center">
                     {% if inativos %}
-                        <a href="/reativar_aluno/{{ aluno['id_aluno'] }}" class="btn btn-success btn-sm shadow-sm" title="Reativar Matrícula" onclick="return confirm('Deseja reativar a matrícula deste aluno?');">
-                            Reativar
-                        </a>
+                        <a href="/reativar_aluno/{{ aluno['id_aluno'] }}" class="btn btn-success btn-sm shadow-sm" onclick="return confirm('Deseja reativar a matrícula deste aluno?');">Reativar</a>
                     {% else %}
-                        <a href="/editar_aluno/{{ aluno['id_aluno'] }}" class="btn btn-warning btn-sm shadow-sm">
-                            ✏️ Editar
-                        </a>
-                        <a href="/inativar_aluno/{{ aluno['id_aluno'] }}" class="btn btn-danger btn-sm shadow-sm" title="Inativar" onclick="return confirm('Tem certeza que deseja inativar este aluno?');">
-                            🚫 Inativar
-                        </a>
+                        <a href="/editar_aluno/{{ aluno['id_aluno'] }}" class="btn btn-warning btn-sm shadow-sm">✏️</a>
+                        <a href="/inativar_aluno/{{ aluno['id_aluno'] }}" class="btn btn-danger btn-sm shadow-sm" onclick="return confirm('Tem certeza que deseja inativar este aluno?');">🚫</a>
                     {% endif %}
                 </td>
             </tr>
-            {% else %}
-            <tr>
-                <td colspan="5" class="text-center text-muted py-4">Nenhum aluno {% if inativos %}inativo{% else %}cadastrado{% endif %} no momento.</td>
-            </tr>
             {% endfor %}
         </tbody>
-
     </table>
 {% endblock %}

@@ -30,7 +30,7 @@ def inicializar_banco():
             id_professor INTEGER PRIMARY KEY AUTOINCREMENT,
             nome TEXT NOT NULL,
             telefone TEXT,
-            chave_pix TEXT UNIQUE,
+            chave_pix TEXT,
             ativo INTEGER DEFAULT 1
         )
     ''')
