@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, flash
+from flask import Flask, render_template, request, redirect, flash, jsonify
 from operacoes import (
     cadastrar_aluno,  
     listar_alunos, 
@@ -59,8 +59,8 @@ def pagina_cadastrar_aluno():
             flash('Aluno cadastrado com sucesso!', 'success')
             return redirect('/cadastrar_aluno')
         
-        except sqlite3.IntegrityError:
-            flash("Atenção: Já existe um aluno cadastrado com esse CPF!", "danger")
+        except ValueError as e:
+            flash(str(e), "danger")
             return redirect('/cadastrar_aluno')
 
     return render_template('cadastrar_aluno.html')
@@ -345,6 +345,37 @@ def rota_editar_plano(id_plano):
         return redirect('/planos')
         
     return render_template('cadastrar_plano.html', valores_antigos=plano_encontrado, editando=True, id_plano=id_plano)
+
+### CRONOGRAMA DE SALAS ##
+@app.route('/cronograma')
+def pagina_cronograma():
+    return render_template('cronograma.html')
+
+@app.route('/api/cronograma')
+def api_cronograma():
+    turmas_ativas = listar_turmas()
+    eventos = []
+    
+    mapa_dias = {'Domingo': 0, 'Segunda': 1, 'Terça': 2, 'Quarta': 3, 'Quinta': 4, 'Sexta': 5, 'Sábado': 6}
+
+    for t in turmas_ativas:
+        if t['dias_semana']:
+            dias_lista = t['dias_semana'].split(', ')
+            dias_numeros = [mapa_dias[dia] for dia in dias_lista if dia in mapa_dias]
+
+            cor_evento = "#0dcaf0" if t['sala'] == 'Sala Pequena' else "#f5c5d1"
+
+            hora_inicio, hora_fim = t['horario'].split(' às ')
+
+            eventos.append({
+                "title": f"{t['nome_turma']} | {t['sala']} ({t['nome_professor']})",
+                "daysOfWeek": dias_numeros,
+                "startTime": hora_inicio,
+                "endTime": hora_fim,
+                "color": cor_evento
+            })
+            
+    return jsonify(eventos)
 
 ## MAIN ##
 if __name__ == '__main__':

@@ -4,7 +4,6 @@ from datetime import datetime
 import re
 
 ##### UTILS #####
-
 def conectar_banco():
     conexao = sqlite3.connect('escola_danca.db')
     cursor = conexao.cursor()
@@ -63,6 +62,11 @@ def verificar_conflito_sala(sala, dias_semana_lista, hora_inicio_nova, hora_fim_
 
 ###### ALUNOS ######
 def cadastrar_aluno(nome, cpf=None, rg=None, endereco=None, data_nascimento=None, email=None, contato_1=None, contato_2=None, responsavel=None):
+    
+    cpf = cpf if cpf else None
+    rg = rg if rg else None
+    email = email if email else None
+
     conexao, cursor = conectar_banco()
     
     sql = '''
@@ -71,11 +75,22 @@ def cadastrar_aluno(nome, cpf=None, rg=None, endereco=None, data_nascimento=None
     '''
     valores = (nome, cpf, rg, endereco, data_nascimento, email, contato_1, contato_2, responsavel)
 
-    cursor.execute(sql, valores)
-    conexao.commit()
-    conexao.close()
-
-    return f"Aluno(a) {nome} cadastrado(a) com sucesso!"
+    try:
+        cursor.execute(sql, valores)
+        conexao.commit()
+        return f"Aluno(a) {nome} cadastrado(a) com sucesso!"
+    except sqlite3.IntegrityError as e:
+        mensagem_erro = str(e).lower()
+        if 'cpf' in mensagem_erro:
+            raise ValueError("Já existe um aluno cadastrado com este CPF!")
+        elif 'email' in mensagem_erro:
+            raise ValueError("Este endereço de e-mail já está sendo usado por outro aluno!")
+        elif 'rg' in mensagem_erro:
+            raise ValueError("Este RG já está cadastrado no sistema!")
+        else:
+            raise ValueError("Erro de duplicidade: Um dado único já existe no sistema.")
+    finally:
+        conexao.close()
 
 def atualizar_aluno(id_aluno, **kwargs):
     if not kwargs:

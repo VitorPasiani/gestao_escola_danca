@@ -38,7 +38,7 @@
 
                     <div class="mb-3">
                         <label for="data_nascimento" class="form-label">Data de Nascimento</label>
-                        <input type="date" class="form-control" id="data_nascimento" name="data_nascimento" value="{% if editando and aluno['data_nascimento'] %}{{ aluno['data_nascimento']|date('Y-m-d') }}{% endif %}">
+                        <input type="date" class="form-control" id="data_nascimento" name="data_nascimento" value="{{ aluno['data_nascimento'] if aluno and aluno['data_nascimento'] else '' }}">
                     </div>
 
                     <div class="mb-3">
