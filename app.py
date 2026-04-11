@@ -26,7 +26,9 @@ from operacoes import (
     inativar_plano,
     buscar_plano,
     deletar_plano_definitivo,
-    listar_planos_inativos
+    listar_planos_inativos,
+    cadastrar_aula_avulsa,
+    listar_aulas_avulsas
 )
 
 import sqlite3
@@ -376,6 +378,38 @@ def api_cronograma():
             })
             
     return jsonify(eventos)
+
+### AULAS AVULSAS/PARTICULARES ###
+@app.route('/registrar_avulsa', methods=['GET', 'POST'])
+def rota_registrar_avulsa():
+    if request.method == 'POST':
+        aluno_nome = request.form.get('aluno_nome')
+        nome_professor = request.form.get('nome_professor')
+        data_aula = request.form.get('data_aula')
+        valor_total = float(request.form.get('valor_total'))
+        
+        tipo_gestao = request.form.get('tipo_gestao')
+        
+        if tipo_gestao == 'Parceiro':
+            percentual_repasse = 75.0
+        else:
+            percentual_repasse = 0.0
+
+        try:
+            mensagem = cadastrar_aula_avulsa(aluno_nome, nome_professor, data_aula, valor_total, percentual_repasse)
+            flash(mensagem, 'success')
+            return redirect('/aulas_avulsas')
+        except Exception as e:
+            flash(f"Erro ao registrar aula: {str(e)}", "danger")
+            return redirect('/registrar_avulsa')
+
+    professores = listar_professores()
+    return render_template('cadastrar_aula_avulsa.html', lista_professores=professores)
+
+@app.route('/aulas_avulsas')
+def pagina_listar_avulsas():
+    aulas = listar_aulas_avulsas()
+    return render_template('listar_aulas_avulsas.html', lista_de_aulas=aulas)
 
 ## MAIN ##
 if __name__ == '__main__':

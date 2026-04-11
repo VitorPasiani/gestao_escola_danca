@@ -1,0 +1,59 @@
+{% extends 'base.html' %}
+
+{% block titulo %}Registrar Aula Avulsa - ATO Espaço de Dança{% endblock %}
+
+{% block conteudo %}
+<h2 class="mb-4">Registrar Aula Avulsa</h2>
+
+<div class="card shadow-sm" style="max-width: 800px; margin: 0 auto;">
+    <div class="card-body">
+        <form action="/registrar_avulsa" method="POST" autocomplete="off">
+            
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">Nome do Aluno (Visitante)*</label>
+                    <input type="text" name="aluno_nome" class="form-control" required>
+                </div>
+
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">Professor*</label>
+                    <select name="nome_professor" class="form-select" required>
+                        <option value="" disabled selected>Selecione um item da lista...</option>
+                        {% for prof in lista_professores %}
+                            <option value="{{ prof['nome'] }}">{{ prof['nome'] }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+
+            <div class="row mt-2">
+                <div class="col-md-4 mb-3">
+                    <label class="form-label">Data da Aula*</label>
+                    <input type="date" name="data_aula" class="form-control" required>
+                </div>
+                
+                <div class="col-md-4 mb-3">
+                    <label class="form-label">Valor Pago (R$)*</label>
+                    <input type="number" step="0.01" name="valor_total" class="form-control" placeholder="0.00" required>
+                </div>
+
+                <div class="col-md-4 mb-3">
+                    <label for="tipo_gestao" class="form-label">Gestão (Repasse)*</label>
+                    <select class="form-select" id="tipo_gestao" name="tipo_gestao" required>
+                        <option value="" disabled selected>Selecione...</option>
+                        <option value="Propria">Turma ATO</option>
+                        <option value="Parceiro">Turma Professor ATO</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-4">
+                <a href="/" class="btn btn-outline-secondary">Página Inicial</a>
+                <button type="reset" class="btn btn-outline-secondary">Cancelar (Limpar)</button>
+                <button type="submit" class="btn badge-ato" onclick="this.disabled=true; this.form.submit();" style="font-size: 1rem; padding: 8px 20px;">Salvar Registro</button>
+            </div>
+            
+        </form>
+    </div>
+</div>
+{% endblock %}

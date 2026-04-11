@@ -14,7 +14,7 @@
             
             <div class="card-body">
                 
-                <form action="{% if editando %}/editar_aluno/{{ aluno['id_aluno'] }}{% else %}/cadastrar_aluno{% endif %}" method="POST">
+                <form action="{% if editando %}/editar_aluno/{{ aluno['id_aluno'] }}{% else %}/cadastrar_aluno{% endif %}" method="POST" autocomplete="off">
                     
                     <div class="mb-3">
                         <label for="nome" class="form-label">Nome Completo*</label>
@@ -63,10 +63,8 @@
 
                     <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-4">
                         <a href="/" class="btn btn-outline-secondary">Página Inicial</a>
-                        
-                        <button type="reset" class="btn btn-outline-secondary">Cancelar(Limpar)</button>
-                        
-                        <button type="submit" class="btn badge-ato" style="font-size: 1rem; padding: 8px 20px;">Salvar Cadastro</button>
+                        <button type="reset" class="btn btn-outline-secondary">Cancelar (Limpar)</button>
+                        <button type="submit" class="btn badge-ato" onclick="this.disabled=true; this.form.submit();" style="font-size: 1rem; padding: 8px 20px;">Salvar Registro</button>
                     </div>
 
                 </form>

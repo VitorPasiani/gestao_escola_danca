@@ -10,7 +10,7 @@
     <div class="card shadow-sm" style="max-width: 800px; margin: 0 auto;">
         <div class="card-body">
             
-            <form action="{% if editando %}/editar_turma/{{ id_turma }}{% else %}/cadastrar_turma{% endif %}" method="POST">
+            <form action="{% if editando %}/editar_turma/{{ id_turma }}{% else %}/cadastrar_turma{% endif %}" method="POST" autocomplete="off">
                 
                 <div class="row">
                     <div class="col-md-6 mb-3">
@@ -86,8 +86,9 @@
                 </div>
 
                 <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-4">
-                    <a href="/turmas" class="btn btn-outline-secondary">Cancelar</a>
-                    <button type="submit" class="btn badge-ato" style="font-size: 1rem; padding: 8px 20px;">Salvar Turma</button>
+                    <a href="/" class="btn btn-outline-secondary">Página Inicial</a>
+                    <button type="reset" class="btn btn-outline-secondary">Cancelar (Limpar)</button>
+                    <button type="submit" class="btn badge-ato" onclick="this.disabled=true; this.form.submit();" style="font-size: 1rem; padding: 8px 20px;">Salvar Registro</button>
                 </div>
             </form>
 
