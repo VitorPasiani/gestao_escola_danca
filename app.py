@@ -28,7 +28,8 @@ from operacoes import (
     deletar_plano_definitivo,
     listar_planos_inativos,
     cadastrar_aula_avulsa,
-    listar_aulas_avulsas
+    listar_aulas_avulsas,
+    deletar_aula_avulsa
 )
 
 import sqlite3
@@ -410,6 +411,12 @@ def rota_registrar_avulsa():
 def pagina_listar_avulsas():
     aulas = listar_aulas_avulsas()
     return render_template('listar_aulas_avulsas.html', lista_de_aulas=aulas)
+
+@app.route('/excluir_avulsa/<int:id_aula>')
+def rota_excluir_avulsa(id_aula):
+    mensagem = deletar_aula_avulsa(id_aula)
+    flash(mensagem, 'success')
+    return redirect('/aulas_avulsas')
 
 ## MAIN ##
 if __name__ == '__main__':

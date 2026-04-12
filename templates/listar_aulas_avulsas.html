@@ -1,0 +1,41 @@
+{% extends 'base.html' %}
+
+{% block titulo %}Histórico de Aulas Avulsas - ATO Espaço de Dança{% endblock %}
+
+{% block conteudo %}
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="mb-0">Histórico de Aulas Avulsas</h2>
+        <a href="/registrar_avulsa" class="btn badge-ato shadow-sm">+ Nova Aula Avulsa</a>
+    </div>
+
+    <table class="table table-hover mt-3 shadow-sm tabela-datatable">
+        <thead class="table-light">
+            <tr>
+                <th>Data</th>
+                <th>Aluno (Visitante)</th>
+                <th>Professor</th>
+                <th>Valor Pago</th>
+                <th>Repasse (Prof)</th>
+                <th>Lucro (Escola)</th>
+                <th class="text-center">Ações</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for aula in lista_de_aulas %}
+            <tr>
+                <td>{{ aula['data_aula'] }}</td>
+                <td class="fw-bold">{{ aula['aluno_nome'] }}</td>
+                <td>{{ aula['nome_professor'] }}</td>
+                
+                <td class="text-primary fw-semibold">R$ {{ "%.2f"|format(aula['valor_total']) }}</td>
+                <td class="text-danger">R$ {{ "%.2f"|format(aula['repasse']) }}</td>
+                <td class="text-success fw-bold">R$ {{ "%.2f"|format(aula['lucro']) }}</td>
+                
+                <td class="text-center">
+                    <a href="/excluir_avulsa/{{ aula['id_aula'] }}" class="btn btn-danger btn-sm shadow-sm" title="Excluir Registro" onclick="return confirm('Tem certeza que deseja excluir este registro financeiro permanentemente?');">🗑️</a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+{% endblock %}

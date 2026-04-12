@@ -29,7 +29,8 @@
             <tr>
                 <th>Turma</th>
                 <th>Professor</th>
-                <th>Sala</th> <th>Dias / Horário</th>
+                <th>Sala</th> 
+                <th>Dias / Horário</th>
                 <th>Tipo de Gestão</th>
                 <th>Valor Mensal</th>
                 <th class="text-center">Ações</th>
@@ -66,10 +67,7 @@
                     {% endif %}
                 </td>
             </tr>
-            {% else %}
-            <tr>
-                <td colspan="5" class="text-center text-muted py-4">Nenhuma turma cadastrada.</td>
-            </tr>
+
             {% endfor %}
         </tbody>
     </table>

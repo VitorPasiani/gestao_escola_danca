@@ -637,6 +637,7 @@ def listar_aulas_avulsas():
             aulas_avulsas.lucro_caixa_avulso
         FROM aulas_avulsas
         LEFT JOIN professores ON aulas_avulsas.id_professor = professores.id_professor
+        ORDER BY aulas_avulsas.data_aula DESC
     '''
     cursor.execute(sql)
     aulas_banco = cursor.fetchall()
