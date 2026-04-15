@@ -67,6 +67,33 @@ def inicializar_banco():
         )
     ''')
 
+    # TABELA INSCRIÇÕES
+    cursor.execute('''
+    CREATE TABLE IF NOT EXISTS inscricoes (
+        id_inscricao INTEGER PRIMARY KEY AUTOINCREMENT,
+        id_aluno INTEGER,
+        id_turma INTEGER,
+        data_inscricao TEXT,
+        status_pagamento_matricula TEXT DEFAULT 'Pendente', -- 'Pago' ou 'Pendente'
+        status_academico TEXT DEFAULT 'Ativo', -- 'Ativo', 'Suspenso', 'Inativo'
+        ativo INTEGER DEFAULT 1,
+        FOREIGN KEY (id_aluno) REFERENCES alunos (id_aluno),
+        FOREIGN KEY (id_turma) REFERENCES turmas (id_turma)
+    )
+''')
+
+    # TABELA FREQUÊNCIA PARTICULARES
+    cursor.execute('''
+    CREATE TABLE IF NOT EXISTS frequencia_particulares (
+        id_frequencia INTEGER PRIMARY KEY AUTOINCREMENT,
+        id_inscricao INTEGER,
+        data_aula TEXT NOT NULL,
+        valor_aula_momento REAL,
+        faturado INTEGER DEFAULT 0,
+        FOREIGN KEY (id_inscricao) REFERENCES inscricoes (id_inscricao)
+    )
+''')
+
     # TABELA PAGAMENTOS
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS pagamentos (

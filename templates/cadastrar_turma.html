@@ -10,17 +10,24 @@
     <div class="card shadow-sm" style="max-width: 800px; margin: 0 auto;">
         <div class="card-body">
             
-            <form action="{% if editando %}/editar_turma/{{ id_turma }}{% else %}/cadastrar_turma{% endif %}" method="POST" autocomplete="off">
+            <form action="{% if editando %}/editar_turma/{{ id_turma }}{% else %}/cadastrar_turma{% endif %}" method="POST" autocomplete="off" id="formTurma">
                 
+                <div class="form-check form-switch mb-4 pb-3 border-bottom">
+                    <input class="form-check-input" type="checkbox" id="is_particular" name="is_particular" value="1" 
+                        {% if valores_antigos.get('is_particular') %}checked{% endif %}>
+                    <label class="form-check-label fw-bold text-primary" for="is_particular">Turma Particular</label>
+                </div>
+
+                <input type="hidden" id="cronograma_json" name="cronograma_json">
+
                 <div class="row">
                     <div class="col-md-6 mb-3">
-                        <label for="nome_turma" class="form-label">Nome da Turma</label>
+                        <label for="nome_turma" class="form-label" id="label_nome">Nome da Turma</label>
                         <input type="text" class="form-control" id="nome_turma" name="nome_turma" 
-                            value="{{ valores_antigos.get('nome_turma', '') }}" 
-                            placeholder="Ex: Ballet Infantil Turma A" required>
+                            value="{{ valores_antigos.get('nome_turma', '') }}" required placeholder="Ex: Ballet Infantil Turma A">
                     </div>
                     
-                    <div class="col-md-3 mb-3">
+                    <div class="col-md-6 mb-3">
                         <label for="id_professor" class="form-label">Professor</label>
                         <select class="form-select" id="id_professor" name="id_professor" required>
                             <option value="" disabled {% if not valores_antigos.get('id_professor') %}selected{% endif %}>Selecione...</option>
@@ -32,65 +39,183 @@
                             {% endfor %}
                         </select>
                     </div>
-
-                    <div class="col-md-3 mb-3">
-                        <label for="sala" class="form-label">Sala</label>
-                        <select class="form-select" id="sala" name="sala" required>
-                            <option value="" disabled {% if not valores_antigos.get('sala') %}selected{% endif %}>Selecione...</option>
-                            <option value="Sala Pequena" {% if valores_antigos.get('sala') == 'Sala Pequena' %}selected{% endif %}>Sala Pequena</option>
-                            <option value="Sala Grande" {% if valores_antigos.get('sala') == 'Sala Grande' %}selected{% endif %}>Sala Grande</option>
-                        </select>
-                    </div>
                 </div>
 
-                <div class="row">
-                    <div class="col-md-6 mb-3">
+                <div id="secao_regular" class="row bg-light p-2 rounded mb-3">
+                    <div class="col-md-3 mb-3">
+                        <label for="sala" class="form-label">Sala Fixa</label>
+                        <select class="form-select" id="sala" name="sala">
+                            <option value="" disabled selected>Selecione...</option>
+                            <option value="Sala Pequena">Sala Pequena</option>
+                            <option value="Sala Grande">Sala Grande</option>
+                        </select>
+                    </div>
+                    <div class="col-md-5 mb-3">
                         <label class="form-label d-block">Dias da Semana</label>
                         {% set dias = [('Segunda', 'Seg'), ('Terça', 'Ter'), ('Quarta', 'Qua'), ('Quinta', 'Qui'), ('Sexta', 'Sex'), ('Sábado', 'Sáb')] %}
                         {% for valor, label in dias %}
                             <div class="form-check form-check-inline">
-                                <input class="form-check-input" type="checkbox" id="{{ valor|lower }}" name="dias_semana" value="{{ valor }}"
-                                    {% if valor in valores_antigos.get('dias_semana', []) %}checked{% endif %}>
+                                <input class="form-check-input" type="checkbox" id="{{ valor|lower }}" name="dias_semana" value="{{ valor }}">
                                 <label class="form-check-label" for="{{ valor|lower }}">{{ label }}</label>
                             </div>
                         {% endfor %}
                     </div>
-                    
-                    <div class="col-md-3 mb-3">
+                    <div class="col-md-2 mb-3">
                         <label for="hora_inicio" class="form-label">Hora Início</label>
-                        <input type="time" class="form-control" id="hora_inicio" name="hora_inicio" 
-                            value="{{ valores_antigos.get('hora_inicio', '') }}" required>
+                        <input type="time" class="form-control" id="hora_inicio" name="hora_inicio">
                     </div>
-
-                    <div class="col-md-3 mb-3">
+                    <div class="col-md-2 mb-3">
                         <label for="hora_fim" class="form-label">Hora Término</label>
-                        <input type="time" class="form-control" id="hora_fim" name="hora_fim" 
-                            value="{{ valores_antigos.get('hora_fim', '') }}" required>
+                        <input type="time" class="form-control" id="hora_fim" name="hora_fim">
                     </div>
                 </div>
 
-                <div class="row mt-2">
+                <div id="secao_particular" style="display: none;" class="mb-4">
+                    <label class="form-label d-block fw-bold text-primary">Dias e Horários Acordados (Grade Dinâmica)</label>
+                    
+                    <div id="lista_grade">
+                        </div>
+                    
+                    <button type="button" class="btn btn-sm btn-outline-primary mt-2 shadow-sm" onclick="adicionarLinhaGrade()">
+                        + Adicionar Dia/Horário
+                    </button>
+                </div>
+
+                <div class="row border-top pt-3">
                     <div class="col-md-6 mb-3">
-                        <label for="valor_mensal_base" class="form-label">Valor Mensal (R$)</label>
+                        <label for="valor_mensal_base" class="form-label fw-bold" id="label_valor">Valor Mensal Fixo (R$)</label>
                         <input type="number" step="0.01" class="form-control" id="valor_mensal_base" name="valor_mensal_base" 
-                            value="{{ valores_antigos.get('valor_mensal_base', '') }}" placeholder="0.00">
+                            value="{{ valores_antigos.get('valor_por_aula') if valores_antigos.get('is_particular') else valores_antigos.get('valor_mensal_base', '') }}" required placeholder="0.00">
                     </div>
 
-                    <div class="col-md-6 mb-3">
+                    <div class="col-md-6 mb-3" id="caixa_gestao">
                         <label for="tipo_gestao" class="form-label">Tipo de Gestão (Repasse)</label>
                         <select class="form-select" id="tipo_gestao" name="tipo_gestao">
-                            <option value="Propria" {% if valores_antigos.get('tipo_gestao') == 'Propria' %}selected{% endif %}>Turma ATO</option>
-                            <option value="Parceiro" {% if valores_antigos.get('tipo_gestao') == 'Parceiro' %}selected{% endif %}>Turma Professor ATO</option>
+                            <option value="Propria">Turma ATO</option>
+                            <option value="Parceiro">Turma Professor ATO</option>
                         </select>
                     </div>
                 </div>
 
                 <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-4">
                     <a href="/" class="btn btn-outline-secondary">Página Inicial</a>
-                    <button type="reset" class="btn btn-outline-secondary">Cancelar (Limpar)</button>
-                    <button type="submit" class="btn badge-ato" onclick="this.disabled=true; this.form.submit();" style="font-size: 1rem; padding: 8px 20px;">Salvar Registro</button>
+                    <button type="button" class="btn badge-ato" onclick="salvarTurma(this)" style="font-size: 1rem; padding: 8px 20px;">Salvar Registro</button>
                 </div>
             </form>
+
+            <script>
+                // === LÓGICA DO SWITCH (ALTERNÂNCIA VISUAL) ===
+                const switchParticular = document.getElementById('is_particular');
+                const secaoRegular = document.getElementById('secao_regular');
+                const secaoParticular = document.getElementById('secao_particular');
+                const labelValor = document.getElementById('label_valor');
+                const labelNome = document.getElementById('label_nome');
+                const caixaGestao = document.getElementById('caixa_gestao');
+
+                switchParticular.addEventListener('change', function() {
+                    if(this.checked) {
+                        secaoRegular.style.display = 'none';
+                        secaoParticular.style.display = 'block';
+                        caixaGestao.style.display = 'none';
+                        labelValor.innerText = 'Valor por Aula (R$)';
+                        labelNome.innerText = 'Nome (Ex: Particular - Nome Aluno)';
+                        if(document.getElementById('lista_grade').children.length === 0) adicionarLinhaGrade();
+                    } else {
+                        secaoRegular.style.display = 'flex';
+                        secaoParticular.style.display = 'none';
+                        caixaGestao.style.display = 'block';
+                        labelValor.innerText = 'Valor Mensal Fixo (R$)';
+                        labelNome.innerText = 'Nome da Turma';
+                    }
+                });
+
+                // === LÓGICA DE ADICIONAR LINHAS DINÂMICAS ===
+                function adicionarLinhaGrade() {
+                    const container = document.getElementById('lista_grade');
+                    const linha = document.createElement('div');
+                    linha.className = 'row mb-2 grade-item bg-white p-2 border rounded shadow-sm align-items-end';
+                    
+                    linha.innerHTML = `
+                        <div class="col-md-3">
+                            <label class="form-label" style="font-size: 0.8rem;">Dia</label>
+                            <select class="form-select form-select-sm dia-grade">
+                                <option value="Segunda">Segunda</option>
+                                <option value="Terça">Terça</option>
+                                <option value="Quarta">Quarta</option>
+                                <option value="Quinta">Quinta</option>
+                                <option value="Sexta">Sexta</option>
+                                <option value="Sábado">Sábado</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label" style="font-size: 0.8rem;">Sala</label>
+                            <select class="form-select form-select-sm sala-grade">
+                                <option value="Sala Pequena">Sala Pequena</option>
+                                <option value="Sala Grande">Sala Grande</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label" style="font-size: 0.8rem;">Início</label>
+                            <input type="time" class="form-control form-control-sm inicio-grade">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label" style="font-size: 0.8rem;">Fim</label>
+                            <input type="time" class="form-control form-control-sm fim-grade">
+                        </div>
+                        <div class="col-md-2">
+                            <button type="button" class="btn btn-sm btn-danger w-100" onclick="this.parentElement.parentElement.remove()">X</button>
+                        </div>
+                    `;
+                    container.appendChild(linha);
+                }
+
+                // === FUNÇÃO PARA CARREGAR LINHAS JÁ EXISTENTES ===
+                function adicionarLinhaGradeComDados(dia, sala, inicio, fim) {
+                    adicionarLinhaGrade(); // Cria a linha vazia
+                    const ultimaLinha = document.getElementById('lista_grade').lastElementChild;
+                    ultimaLinha.querySelector('.dia-grade').value = dia;
+                    ultimaLinha.querySelector('.sala-grade').value = sala;
+                    ultimaLinha.querySelector('.inicio-grade').value = inicio;
+                    ultimaLinha.querySelector('.fim-grade').value = fim;
+                }
+
+                // === QUANDO A PÁGINA CARREGAR (MODO EDIÇÃO) ===
+                document.addEventListener('DOMContentLoaded', function() {
+                    if(switchParticular.checked) {
+                        switchParticular.dispatchEvent(new Event('change'));
+                        
+                        {% if valores_antigos.get('cronograma') %}
+                            const gradeSalva = {{ valores_antigos.get('cronograma') | safe }};
+                            document.getElementById('lista_grade').innerHTML = '';
+                            gradeSalva.forEach(aula => {
+                                adicionarLinhaGradeComDados(aula.dia, aula.sala, aula.inicio, aula.fim);
+                            });
+                        {% endif %}
+                    }
+                });
+
+                // === INTERCEPTAR SALVAMENTO PARA MONTAR O JSON ===
+                function salvarTurma(botao) {
+                    if(switchParticular.checked) {
+                        const linhas = document.querySelectorAll('.grade-item');
+                        const gradeFinal = [];
+                        
+                        linhas.forEach(linha => {
+                            gradeFinal.push({
+                                dia: linha.querySelector('.dia-grade').value,
+                                sala: linha.querySelector('.sala-grade').value,
+                                inicio: linha.querySelector('.inicio-grade').value,
+                                fim: linha.querySelector('.fim-grade').value
+                            });
+                        });
+
+                        document.getElementById('cronograma_json').value = JSON.stringify(gradeFinal);
+                    }
+
+                    botao.disabled = true;
+                    document.getElementById('formTurma').submit();
+                }
+            </script>
 
         </div>
     </div>

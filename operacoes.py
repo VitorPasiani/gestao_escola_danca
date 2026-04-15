@@ -60,6 +60,7 @@ def verificar_conflito_sala(sala, dias_semana_lista, hora_inicio_nova, hora_fim_
     conexao.close()
     return None
 
+
 ###### ALUNOS ######
 def cadastrar_aluno(nome, cpf=None, rg=None, endereco=None, data_nascimento=None, email=None, contato_1=None, contato_2=None, responsavel=None):
     
@@ -432,15 +433,10 @@ def listar_turmas():
 
     sql = '''
         SELECT
-            turmas.id_turma,
-            turmas.nome_turma,
-            professores.nome,
-            turmas.sala,
-            turmas.hora_inicio,
-            turmas.hora_fim,
-            turmas.dias_semana,
-            turmas.valor_mensal_base,
-            turmas.tipo_gestao
+            turmas.id_turma, turmas.nome_turma, professores.nome,
+            turmas.sala, turmas.hora_inicio, turmas.hora_fim,
+            turmas.dias_semana, turmas.valor_mensal_base, turmas.tipo_gestao,
+            turmas.is_particular, turmas.cronograma
         FROM turmas
         LEFT JOIN professores ON turmas.id_professor = professores.id_professor
         WHERE turmas.ativo = 1
@@ -457,10 +453,12 @@ def listar_turmas():
             "nome_turma": t[1],
             "nome_professor": t[2] if t[2] else "Sem Professor",
             "sala": t[3],
-            "horario": f"{t[4]} às {t[5]}", 
-            "dias_semana": t[6],
+            "horario": f"{t[4]} às {t[5]}" if t[4] else "Horário Dinâmico", 
+            "dias_semana": t[6] if t[6] else "Grade Dinâmica",
             "valor_mensal_base": t[7],
-            "tipo_gestao": t[8]
+            "tipo_gestao": t[8],
+            "is_particular": t[9],
+            "cronograma": t[10]
         })
         
     return lista_turmas
@@ -519,6 +517,78 @@ def deletar_turma_definitivo(id_turma):
     
     return mensagem
 
+
+##### PARTICULARES ######
+def realizar_inscricao_aluno(id_aluno, id_turma, pagou_matricula=False):
+    conexao, cursor = conectar_banco()
+    data_hoje = datetime.now().strftime("%d/%m/%Y")
+    status_mat = 'Pago' if pagou_matricula else 'Pendente'
+
+    try:
+        sql_ins = '''
+            INSERT INTO inscricoes (id_aluno, id_turma, data_inscricao, status_pagamento_matricula)
+            VALUES (?, ?, ?, ?)
+        '''
+        cursor.execute(sql_ins, (id_aluno, id_turma, data_hoje, status_mat))
+        
+        if pagou_matricula:
+            cursor.execute('UPDATE saldos_caixa SET saldo_matriculas = saldo_matriculas + 100.0')
+            
+        conexao.commit()
+        return "Inscrição realizada com sucesso!"
+    except Exception as e:
+        return f"Erro ao inscrever aluno: {str(e)}"
+    finally:
+        conexao.close()
+
+def registrar_frequencia_particular(id_inscricao, data_aula, valor_aula):
+    conexao, cursor = conectar_banco()
+    sql = 'INSERT INTO frequencia_particulares (id_inscricao, data_aula, valor_aula_momento) VALUES (?, ?, ?)'
+    
+    try:
+        cursor.execute(sql, (id_inscricao, data_aula, valor_aula))
+        conexao.commit()
+        return "Presença registrada! O valor será contabilizado no fechamento do mês."
+    finally:
+        conexao.close()
+
+def listar_inscricoes_particulares():
+    conexao, cursor = conectar_banco()
+    sql = '''
+        SELECT i.id_inscricao, a.nome, t.nome_turma, t.valor_por_aula
+        FROM inscricoes i
+        JOIN alunos a ON i.id_aluno = a.id_aluno
+        JOIN turmas t ON i.id_turma = t.id_turma
+        WHERE a.ativo = 1 AND t.ativo = 1 AND t.is_particular = 1
+        ORDER BY a.nome ASC
+    '''
+    cursor.execute(sql)
+    resultados = cursor.fetchall()
+    conexao.close()
+    return [{"id_inscricao": r[0], "nome_aluno": r[1], "nome_turma": r[2], "valor_aula": r[3]} for r in resultados]
+
+def buscar_valor_aula_por_inscricao(id_inscricao):
+    conexao, cursor = conectar_banco()
+    sql = 'SELECT t.valor_por_aula FROM inscricoes i JOIN turmas t ON i.id_turma = t.id_turma WHERE i.id_inscricao = ?'
+    cursor.execute(sql, (id_inscricao,))
+    res = cursor.fetchone()
+    conexao.close()
+    return res[0] if res else 0.0
+
+def listar_ultimos_checkins(limite=20):
+    conexao, cursor = conectar_banco()
+    sql = '''
+        SELECT f.data_aula, a.nome, t.nome_turma, f.valor_aula_momento
+        FROM frequencia_particulares f
+        JOIN inscricoes i ON f.id_inscricao = i.id_inscricao
+        JOIN alunos a ON i.id_aluno = a.id_aluno
+        JOIN turmas t ON i.id_turma = t.id_turma
+        ORDER BY f.id_frequencia DESC LIMIT ?
+    '''
+    cursor.execute(sql, (limite,))
+    res = cursor.fetchall()
+    conexao.close()
+    return [{"data_aula": r[0], "nome_aluno": r[1], "nome_turma": r[2], "valor_aula_momento": r[3]} for r in res]
 
 ##### EVENTOS ######
 def cadastrar_evento(nome_evento, data_evento=None):

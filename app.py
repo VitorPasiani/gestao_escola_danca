@@ -29,10 +29,15 @@ from operacoes import (
     listar_planos_inativos,
     cadastrar_aula_avulsa,
     listar_aulas_avulsas,
-    deletar_aula_avulsa
+    deletar_aula_avulsa,
+    registrar_frequencia_particular,
+    listar_inscricoes_particulares,
+    buscar_valor_aula_por_inscricao,
+    listar_ultimos_checkins
 )
 
 import sqlite3
+import json
 
 app = Flask(__name__)
 app.secret_key = 'chave_secreta_espaco_ato'
@@ -180,38 +185,36 @@ def rota_editar_professor(id_professor):
 @app.route('/cadastrar_turma', methods=['GET', 'POST'])
 def rota_cadastrar_turma():
     if request.method == 'POST':
+        is_particular = request.form.get('is_particular') == '1'
+        
         dados = {
             'nome_turma': request.form.get('nome_turma'),
             'id_professor': request.form.get('id_professor'),
-            'sala': request.form.get('sala'),
-            'hora_inicio': request.form.get('hora_inicio'),
-            'hora_fim': request.form.get('hora_fim'),
-            'valor_mensal_base': request.form.get('valor_mensal_base'),
-            'tipo_gestao': request.form.get('tipo_gestao'),
-            'dias_semana': request.form.getlist('dias_semana')
+            'sala': request.form.get('sala') if not is_particular else "Dinâmica",
+            'hora_inicio': request.form.get('hora_inicio') if not is_particular else "",
+            'hora_fim': request.form.get('hora_fim') if not is_particular else "",
+            'valor_base': request.form.get('valor_mensal_base'),
+            'tipo_gestao': request.form.get('tipo_gestao') if not is_particular else "Parceiro",
+            'dias_semana': request.form.getlist('dias_semana') if not is_particular else [],
+            'cronograma': request.form.get('cronograma_json') if is_particular else None
         }
 
-        if not dados['dias_semana']:
-            flash("Por favor, selecione pelo menos um dia da semana.", "danger")
-            professores_ativos = listar_professores()
-            return render_template('cadastrar_turma.html', 
-                                 lista_professores=professores_ativos, 
-                                 valores_antigos=dados)
+        dias_semana_texto = ", ".join(dados['dias_semana']) if not is_particular else None
+        valor_mensal = dados['valor_base'] if not is_particular else None
+        valor_aula = dados['valor_base'] if is_particular else None
 
-        conflito = verificar_conflito_sala(dados['sala'], dados['dias_semana'], dados['hora_inicio'], dados['hora_fim'])
-        
-        if conflito:
-            flash(conflito, 'danger')
-            professores_ativos = listar_professores()
-            return render_template('cadastrar_turma.html', 
-                                 lista_professores=professores_ativos, 
-                                 valores_antigos=dados)
-
-        dias_semana_texto = ", ".join(dados['dias_semana'])
         mensagem = cadastrar_turma(
-            dados['nome_turma'], dados['tipo_gestao'], dados['sala'], 
-            dados['id_professor'], dados['hora_inicio'], dados['hora_fim'], 
-            dias_semana_texto, dados['valor_mensal_base']
+            nome_turma=dados['nome_turma'], 
+            tipo_gestao=dados['tipo_gestao'], 
+            sala=dados['sala'], 
+            id_professor=dados['id_professor'], 
+            hora_inicio=dados['hora_inicio'], 
+            hora_fim=dados['hora_fim'], 
+            dias_semana=dias_semana_texto, 
+            valor_mensal_base=valor_mensal,
+            is_particular=is_particular,
+            cronograma=dados['cronograma'],
+            valor_por_aula=valor_aula
         )
         
         flash(mensagem, 'success')
@@ -234,36 +237,25 @@ def rota_deletar_turma(id_turma):
 @app.route('/editar_turma/<int:id_turma>', methods=['GET', 'POST'])
 def rota_editar_turma(id_turma):
     if request.method == 'POST':
+        is_particular = request.form.get('is_particular') == '1'
+        
         dados_novos = {
             'nome_turma': request.form.get('nome_turma'),
             'id_professor': request.form.get('id_professor'),
-            'sala': request.form.get('sala'),
-            'hora_inicio': request.form.get('hora_inicio'),
-            'hora_fim': request.form.get('hora_fim'),
-            'valor_mensal_base': request.form.get('valor_mensal_base'),
-            'tipo_gestao': request.form.get('tipo_gestao')
+            'sala': request.form.get('sala') if not is_particular else "Dinâmica",
+            'hora_inicio': request.form.get('hora_inicio') if not is_particular else "",
+            'hora_fim': request.form.get('hora_fim') if not is_particular else "",
+            'tipo_gestao': request.form.get('tipo_gestao') if not is_particular else "Parceiro",
+            'is_particular': is_particular,
+            'cronograma': request.form.get('cronograma_json') if is_particular else None,
+            'valor_mensal_base': request.form.get('valor_mensal_base') if not is_particular else None,
+            'valor_por_aula': request.form.get('valor_mensal_base') if is_particular else None 
         }
-        dias_semana_lista = request.form.getlist('dias_semana')
 
-        if not dias_semana_lista:
-            flash("Por favor, selecione pelo menos um dia da semana.", "danger")
-            return redirect(f'/editar_turma/{id_turma}')
+        dias_semana_lista = request.form.getlist('dias_semana') if not is_particular else []
+        dados_novos['dias_semana'] = ", ".join(dias_semana_lista) if not is_particular else None
 
-        conflito = verificar_conflito_sala(
-            dados_novos['sala'], dias_semana_lista, 
-            dados_novos['hora_inicio'], dados_novos['hora_fim'], 
-            id_turma_ignorada=id_turma
-        )
-        
-        if conflito:
-            flash(conflito, 'danger')
-            dados_novos['dias_semana'] = dias_semana_lista
-            professores = listar_professores()
-            return render_template('cadastrar_turma.html', lista_professores=professores, valores_antigos=dados_novos, editando=True, id_turma=id_turma)
-
-        dados_novos['dias_semana'] = ", ".join(dias_semana_lista)
         mensagem = atualizar_turma(id_turma, **dados_novos)
-        
         flash(mensagem, 'success')
         return redirect('/turmas')
 
@@ -272,7 +264,7 @@ def rota_editar_turma(id_turma):
         flash("Turma não encontrada!", "danger")
         return redirect('/turmas')
     
-    if turma_existente['dias_semana']:
+    if turma_existente.get('dias_semana'):
         turma_existente['dias_semana'] = turma_existente['dias_semana'].split(', ')
     
     professores = listar_professores()
@@ -354,20 +346,33 @@ def rota_editar_plano(id_plano):
 def pagina_cronograma():
     return render_template('cronograma.html')
 
+
 @app.route('/api/cronograma')
 def api_cronograma():
     turmas_ativas = listar_turmas()
     eventos = []
-    
     mapa_dias = {'Domingo': 0, 'Segunda': 1, 'Terça': 2, 'Quarta': 3, 'Quinta': 4, 'Sexta': 5, 'Sábado': 6}
 
     for t in turmas_ativas:
-        if t['dias_semana']:
+        # LÓGICA 1: TURMA PARTICULAR
+        if t['is_particular'] and t['cronograma']:
+            cor_evento = "#203760" 
+            grade = json.loads(t['cronograma'])
+            
+            for aula in grade:
+                eventos.append({
+                    "title": f"{t['nome_turma']} | {aula['sala']} ({t['nome_professor']})",
+                    "daysOfWeek": [mapa_dias[aula['dia']]],
+                    "startTime": aula['inicio'],
+                    "endTime": aula['fim'],
+                    "color": cor_evento
+                })
+                
+        # LÓGICA 2: TURMA REGULAR
+        elif t['dias_semana'] and t['dias_semana'] != "Grade Dinâmica":
             dias_lista = t['dias_semana'].split(', ')
             dias_numeros = [mapa_dias[dia] for dia in dias_lista if dia in mapa_dias]
-
             cor_evento = "#0dcaf0" if t['sala'] == 'Sala Pequena' else "#f5c5d1"
-
             hora_inicio, hora_fim = t['horario'].split(' às ')
 
             eventos.append({
@@ -417,6 +422,30 @@ def rota_excluir_avulsa(id_aula):
     mensagem = deletar_aula_avulsa(id_aula)
     flash(mensagem, 'success')
     return redirect('/aulas_avulsas')
+
+### FREQUÊNCIA / CHECK-IN (AULAS PARTICULARES) ###
+@app.route('/checkin_particular', methods=['GET', 'POST'])
+def rota_checkin_particular():
+    if request.method == 'POST':
+        id_inscricao = request.form.get('id_inscricao')
+        data_aula = request.form.get('data_aula')
+        
+        valor_aula = buscar_valor_aula_por_inscricao(id_inscricao)
+        
+        try:
+            mensagem = registrar_frequencia_particular(id_inscricao, data_aula, valor_aula)
+            flash(mensagem, 'success')
+            return redirect('/checkin_particular')
+        except Exception as e:
+            flash(f"Erro: {str(e)}", "danger")
+            return redirect('/checkin_particular')
+
+    inscricoes = listar_inscricoes_particulares()
+    historico = listar_ultimos_checkins()
+
+    return render_template('checkin_particular.html', 
+                           lista_inscricoes=inscricoes,
+                           lista_historico=historico)
 
 ## MAIN ##
 if __name__ == '__main__':
