@@ -60,7 +60,7 @@
                 
                 <td class="text-center">
                     {% if inativas %}
-                        <a href="/excluir_turma/{{ turma['id_turma'] }}" class="btn btn-danger btn-sm shadow-sm" title="Excluir Definitivamente" onclick="return confirm('Atenção: Esta ação apagará a turma do banco de dados para sempre. Deseja continuar?');">Excluir Definitivo 🗑️</a>
+                        <a href="/excluir_turma/{{ turma['id_turma'] }}" class="btn btn-danger btn-sm shadow-sm" title="Excluir Definitivamente" onclick="return confirm('Atenção: Esta ação apagará a turma do banco de dados para sempre. Deseja continuar?');">Excluir Definitivo</a>
                     {% else %}
                         <a href="/editar_turma/{{ turma['id_turma'] }}" class="btn btn-warning btn-sm shadow-sm" title="Editar">✏️</a>
                         <a href="/deletar_turma/{{ turma['id_turma'] }}" class="btn btn-danger btn-sm shadow-sm" title="Inativar" onclick="return confirm('Deseja inativar esta turma?');">🚫</a>

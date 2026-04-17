@@ -16,8 +16,6 @@
                 <th>Contato 1</th>
                 <th>Contato 2</th>
                 <th>Responsável</th>
-                <th>Turmas</th> 
-                <th>Planos</th> 
                 <th class="text-center">Ações</th>
             </tr>
         </thead>
@@ -37,9 +35,6 @@
                 <td class="{% if inativos %}text-muted{% endif %}">{{ aluno['contato_2'] or '-' }}</td>
                 <td class="{% if inativos %}text-muted{% endif %}">{{ aluno['responsavel'] or '-' }}</td>
                 
-                <td class="{% if inativos %}text-muted{% endif %} text-center">-</td> 
-                <td class="{% if inativos %}text-muted{% endif %} text-center">-</td> 
-
                 <td class="text-center">
                     {% if inativos %}
                         <a href="/reativar_aluno/{{ aluno['id_aluno'] }}" class="btn btn-success btn-sm shadow-sm" onclick="return confirm('Deseja reativar a matrícula deste aluno?');">Reativar</a>

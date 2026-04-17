@@ -7,6 +7,7 @@ from operacoes import (
     atualizar_aluno,
     listar_alunos_inativos,
     reativar_aluno,
+    aluno_ja_tem_vinculo,
     cadastrar_professor,
     listar_professores,
     deletar_professor,
@@ -33,7 +34,9 @@ from operacoes import (
     registrar_frequencia_particular,
     listar_inscricoes_particulares,
     buscar_valor_aula_por_inscricao,
-    listar_ultimos_checkins
+    listar_ultimos_checkins,
+    realizar_inscricao_aluno,
+    listar_matriculas_ativas
 )
 
 import sqlite3
@@ -132,6 +135,46 @@ def rota_editar_aluno(id_aluno):
         return redirect('/alunos')
         
     return render_template('cadastrar_aluno.html', aluno=aluno_encontrado, editando=True)
+
+@app.route('/nova_matricula', methods=['GET', 'POST'])
+def rota_nova_matricula():
+    if request.method == 'POST':
+        id_aluno = request.form.get('id_aluno')
+        ids_turmas = request.form.getlist('id_turma') 
+        status_form = request.form.get('status_matricula')
+        
+        ja_e_aluno = aluno_ja_tem_vinculo(id_aluno)
+        
+        try:
+            pagou_taxa_nesta_sessao = False
+
+            for id_turma in ids_turmas:
+                if not id_turma:
+                    continue
+
+                if not ja_e_aluno and not pagou_taxa_nesta_sessao:
+                    pagou_matricula_agora = True if status_form == 'Pago' else False
+                    pagou_taxa_nesta_sessao = True
+                else:
+                    pagou_matricula_agora = False
+
+                realizar_inscricao_aluno(id_aluno, id_turma, pagou_matricula_agora)
+
+            if ja_e_aluno:
+                msg_vinculo = "Aluno já cadastrado em outra turma! Inscrição realizada sem nova taxa de matrícula."
+            else:
+                msg_vinculo = "Novas matrículas realizadas com sucesso!"
+
+            flash(msg_vinculo, "success")
+            return redirect('/matriculas') 
+            
+        except Exception as e:
+            flash(f"Erro ao processar matrícula: {str(e)}", "danger")
+            return redirect('/nova_matricula')
+
+    alunos = listar_alunos()
+    turmas = listar_turmas()
+    return render_template('cadastrar_matricula.html', lista_alunos=alunos, lista_turmas=turmas)
 
 ### PROFESSORES ###
 @app.route('/cadastrar_professor', methods=['GET', 'POST'])

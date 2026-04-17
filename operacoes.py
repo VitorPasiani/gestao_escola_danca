@@ -60,6 +60,12 @@ def verificar_conflito_sala(sala, dias_semana_lista, hora_inicio_nova, hora_fim_
     conexao.close()
     return None
 
+def aluno_ja_tem_vinculo(id_aluno):
+    conexao, cursor = conectar_banco()
+    cursor.execute('SELECT COUNT(*) FROM inscricoes WHERE id_aluno = ? AND ativo = 1', (id_aluno,))
+    total = cursor.fetchone()[0]
+    conexao.close()
+    return total > 0
 
 ###### ALUNOS ######
 def cadastrar_aluno(nome, cpf=None, rg=None, endereco=None, data_nascimento=None, email=None, contato_1=None, contato_2=None, responsavel=None):
@@ -516,6 +522,43 @@ def deletar_turma_definitivo(id_turma):
         conexao.close()
     
     return mensagem
+
+def listar_matriculas_ativas():
+    conexao, cursor = conectar_banco()
+
+    sql = '''
+        SELECT 
+            i.id_inscricao, 
+            a.nome AS nome_aluno, 
+            t.nome_turma, 
+            p.nome AS nome_professor,
+            i.data_inscricao, 
+            i.status_pagamento_matricula, 
+            i.status_academico
+        FROM inscricoes i
+        JOIN alunos a ON i.id_aluno = a.id_aluno
+        JOIN turmas t ON i.id_turma = t.id_turma
+        LEFT JOIN professores p ON t.id_professor = p.id_professor
+        WHERE i.ativo = 1 AND a.ativo = 1 AND t.ativo = 1
+        ORDER BY a.nome ASC
+    '''
+    cursor.execute(sql)
+    matriculas_banco = cursor.fetchall()
+    conexao.close()
+
+    lista_matriculas = []
+    for m in matriculas_banco:
+        lista_matriculas.append({
+            "id_inscricao": m[0],
+            "nome_aluno": m[1],
+            "nome_turma": m[2],
+            "nome_professor": m[3] if m[3] else "Sem Professor",
+            "data_inscricao": m[4],
+            "status_pagamento": m[5],
+            "status_academico": m[6]
+        })
+
+    return lista_matriculas
 
 
 ##### PARTICULARES ######

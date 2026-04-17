@@ -1,0 +1,45 @@
+{% extends 'base.html' %}
+
+{% block titulo %}Alunos Matriculados - ATO Espaço de Dança{% endblock %}
+
+{% block conteudo %}
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="mb-0">Alunos Matriculados (Vínculos Ativos)</h2>
+        <a href="/nova_matricula" class="btn badge-ato shadow-sm">+ Nova Matrícula</a>
+    </div>
+
+    <table class="table table-hover mt-3 shadow-sm tabela-datatable">
+        <thead class="table-light">
+            <tr>
+                <th>Aluno</th>
+                <th>Turma</th>
+                <th>Professor(a)</th>
+                <th>Data da Matrícula</th>
+                <th class="text-center">Taxa de matrícula</th>
+                <th class="text-center">Status Acadêmico</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for matricula in lista_de_matriculas %}
+            <tr>
+                <td class="fw-bold">{{ matricula['nome_aluno'] }}</td>
+                <td>{{ matricula['nome_turma'] }}</td>
+                <td>{{ matricula['nome_professor'] }}</td>
+                <td>{{ matricula['data_inscricao'] }}</td>
+                
+                <td class="text-center">
+                    {% if matricula['status_pagamento'] == 'Pago' %}
+                        <span class="badge bg-success">Pago</span>
+                    {% else %}
+                        <span class="badge bg-warning text-dark">Pendente</span>
+                    {% endif %}
+                </td>
+                
+                <td class="text-center">
+                    <span class="badge bg-primary">{{ matricula['status_academico'] }}</span>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+{% endblock %}

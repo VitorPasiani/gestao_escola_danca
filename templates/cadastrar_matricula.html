@@ -1,0 +1,84 @@
+{% extends 'base.html' %}
+
+{% block titulo %}Nova Matrícula - ATO Espaço de Dança{% endblock %}
+
+{% block conteudo %}
+<h2 class="mb-4">Realizar Nova Matrícula</h2>
+
+<div class="card shadow-sm" style="max-width: 700px; margin: 0 auto;">
+    <div class="card-header card-header-ato">
+        <h5 class="mb-0">Vínculo Aluno e Turma</h5>
+    </div>
+    
+    <div class="card-body">
+        <form action="/nova_matricula" method="POST" autocomplete="off">
+            
+            <div class="mb-3">
+                <label class="form-label fw-bold">Selecione o Aluno*</label>
+                <select name="id_aluno" class="form-select" required>
+                    <option value="" disabled selected>Escolha um aluno da lista...</option>
+                    {% for aluno in lista_alunos %}
+                        <option value="{{ aluno['id_aluno'] }}">{{ aluno['nome'] }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div id="caixa-turmas">
+                <div class="mb-2 turma-item">
+                    <label class="form-label fw-bold">Selecione a Turma*</label>
+                    <div class="d-flex gap-2">
+                        <select name="id_turma" class="form-select" required>
+                            <option value="" disabled selected>Escolha uma turma ativa...</option>
+                            {% for turma in lista_turmas %}
+                                <option value="{{ turma['id_turma'] }}">
+                                    {{ turma['nome_turma'] }} (Prof. {{ turma['nome_professor'] }})
+                                </option>
+                            {% endfor %}
+                        </select>
+                        <button type="button" class="btn btn-danger btn-remover" style="display: none;" onclick="this.parentElement.parentElement.remove()">X</button>
+                    </div>
+                </div>
+            </div>
+
+            <button type="button" class="btn btn-sm btn-outline-primary mb-4 shadow-sm" onclick="adicionarTurma()">
+                + Adicionar outra turma
+            </button>
+            </div>
+
+            <div class="mb-4 p-3 bg-light rounded border">
+                <label class="form-label fw-bold text-primary">Taxa de Matrícula</label>
+                <select name="status_matricula" class="form-select border-primary" required>
+                    <option value="" disabled selected>Selecione o status do pagamento...</option>
+                    <option value="Pago">Pagamento realizado (Adicionar ao Caixa)</option>
+                    <option value="Pendente">Pagamento pendente (Cobrar depois)</option>
+                </select>
+            </div>
+
+            <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                <a href="/" class="btn btn-outline-secondary">Cancelar</a>
+                <button type="submit" class="btn badge-ato" onclick="this.disabled=true; this.form.submit();" style="font-size: 1rem; padding: 8px 20px;">
+                    Efetivar Matrícula
+                </button>
+            </div>
+
+        </form>
+    </div>
+</div>
+
+    <script>
+        function adicionarTurma() {
+            const caixa = document.getElementById('caixa-turmas');
+
+            const turmaMatriz = caixa.querySelector('.turma-item');
+            
+            const novaTurma = turmaMatriz.cloneNode(true);
+            
+            novaTurma.querySelector('select').selectedIndex = 0;
+            
+            novaTurma.querySelector('.btn-remover').style.display = 'block';
+            
+            caixa.appendChild(novaTurma);
+        }
+    </script>
+
+{% endblock %}
