@@ -20,7 +20,8 @@ def inicializar_banco():
             contato_1 TEXT,
             contato_2 TEXT,
             responsavel TEXT,
-            ativo INTEGER DEFAULT 1 
+            ativo INTEGER DEFAULT 1,
+            motivo_inativacao TEXT DEFAULT 'Decisão do Aluno'
         )
     ''')
 
@@ -150,6 +151,17 @@ def inicializar_banco():
             valor REAL NOT NULL,
                 
             FOREIGN KEY (id_evento) REFERENCES eventos (id_evento)
+        )
+    ''')
+
+# TABELA HISTORICO DE SAQUES
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS historico_saques (
+            id_saque INTEGER PRIMARY KEY AUTOINCREMENT,
+            caixa_origem TEXT NOT NULL,
+            descricao TEXT NOT NULL,
+            valor REAL NOT NULL,
+            data_saque TEXT NOT NULL
         )
     ''')
 

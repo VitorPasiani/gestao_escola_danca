@@ -1,0 +1,59 @@
+{% extends 'base.html' %}
+{% block titulo %}Painel de Inadimplência - ATO{% endblock %}
+
+{% block conteudo %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>Painel de Inadimplência</h2>
+    <form action="/painel_inadimplencia" method="POST">
+        <button type="submit" class="btn btn-danger shadow-sm" onclick="return confirm('Isso irá inativar todos os alunos com mais de 30 dias de atraso. Confirmar?')">
+            ⚠️ Executar Regra de 30 Dias
+        </button>
+    </form>
+</div>
+
+<div class="card shadow-sm border-0" style="border-radius: 12px;">
+    <div class="card-body">
+        <table class="table table-hover tabela-datatable">
+            <thead>
+                <tr>
+                    <th>Aluno</th>
+                    <th>Data Limite</th>
+                    <th>Atraso</th>
+                    <th>Valor Original</th>
+                    <th>Valor Atualizado</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in inadimplentes %}
+                <tr class="{{ 'table-danger' if item.pode_inativar else '' }}">
+                    <td><strong>{{ item.aluno }}</strong><br><small class="text-muted">{{ item.turma }}</small></td>
+                    <td>{{ item.data_limite }}</td>
+                    <td>{{ item.dias_atraso }} dias</td>
+                    <td>R$ {{ "%.2f"|format(item.valor_original) }}</td>
+                    <td class="{{ 'text-danger fw-bold' if item.multa_aplicada else '' }}">
+                        R$ {{ "%.2f"|format(item.valor_atualizado) }}
+                        {% if item.multa_aplicada %}<br><small>(+10% Multa)</small>{% endif %}
+                    </td>
+                    <td>
+                        {% if item.pode_inativar %}
+                            <span class="badge bg-dark">CRÍTICO (>30d)</span>
+                        {% elif item.multa_aplicada %}
+                            <span class="badge bg-danger">Atraso Grave</span>
+                        {% elif item.dias_atraso > 0 %}
+                            <span class="badge bg-warning text-dark">Atraso Recente</span>
+                        {% else %}
+                            <span class="badge bg-info text-dark shadow-sm">No Prazo</span>
+                        {% endif %}
+
+                        {% if item.is_particular %}
+                            <br><small class="text-muted fw-bold" style="font-size: 0.70rem;">ISENTO DE MULTA</small>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

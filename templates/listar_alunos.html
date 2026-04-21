@@ -7,6 +7,12 @@
         {% if inativos %}Arquivo Morto: Alunos Inativos{% else %}Lista de Alunos com Matrícula Ativa{% endif %}
     </h2>
 
+    <div class="d-flex justify-content-end mb-3">
+        {% if not inativos %}
+            <a href="/cadastrar_aluno" class="btn badge-ato shadow-sm">+ Novo Aluno</a>
+        {% endif %}
+    </div>
+
     <table class="table table-hover mt-3 shadow-sm tabela-datatable">
         <thead class="{% if inativos %}table-light{% endif %}">
             <tr>
@@ -16,6 +22,9 @@
                 <th>Contato 1</th>
                 <th>Contato 2</th>
                 <th>Responsável</th>
+                {% if inativos %}
+                    <th>Motivo da Saída</th>
+                {% endif %}
                 <th class="text-center">Ações</th>
             </tr>
         </thead>
@@ -34,6 +43,16 @@
                 <td class="{% if inativos %}text-muted{% endif %}">{{ aluno['contato_1'] or '-' }}</td>
                 <td class="{% if inativos %}text-muted{% endif %}">{{ aluno['contato_2'] or '-' }}</td>
                 <td class="{% if inativos %}text-muted{% endif %}">{{ aluno['responsavel'] or '-' }}</td>
+
+                {% if inativos %}
+                    <td>
+                        {% if aluno['motivo_inativacao'] == 'Inadimplência' %}
+                            <span class="badge bg-danger">Inadimplência</span>
+                        {% else %}
+                            <span class="badge bg-secondary">{{ aluno['motivo_inativacao'] }}</span>
+                        {% endif %}
+                    </td>
+                {% endif %}
                 
                 <td class="text-center">
                     {% if inativos %}

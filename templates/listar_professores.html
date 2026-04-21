@@ -5,6 +5,12 @@
 {% block conteudo %}
     <h2 class="mb-4">Lista de Professores Ativos</h2>
 
+    <div class="d-flex justify-content-end mb-3">
+        {% if not inativos %}
+            <a href="/cadastrar_professor" class="btn badge-ato shadow-sm">+ Novo Professor</a>
+        {% endif %}
+    </div>
+
     <table class="table table-hover mt-3 shadow-sm tabela-datatable">
         
         <thead>

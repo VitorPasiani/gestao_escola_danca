@@ -32,7 +32,9 @@
                     </div>
 
                     <div class="d-grid mt-4">
-                        <button type="submit" class="btn badge-ato" onclick="this.disabled=true; this.form.submit();" style="font-size: 1rem; padding: 10px;">
+                        <button type="button" class="btn badge-ato" 
+                            onclick="if(this.form.checkValidity()){ this.disabled=true; this.form.submit(); } else { this.form.reportValidity(); }" 
+                            style="font-size: 1rem; padding: 10px;">
                             Confirmar Check-in
                         </button>
                     </div>
@@ -57,7 +59,9 @@
                     <tbody>
                         {% for checkin in lista_historico %}
                         <tr>
-                            <td>{{ checkin['data_aula'] }}</td>
+                            <td data-sort="{{ checkin['data_aula'] }}">
+                                {{ checkin['data_aula'][8:10] }}/{{ checkin['data_aula'][5:7] }}/{{ checkin['data_aula'][0:4] }}
+                            </td>
                             <td class="fw-bold">{{ checkin['nome_aluno'] }}</td>
                             <td>{{ checkin['nome_turma'] }}</td>
                             <td class="text-success">R$ {{ "%.2f"|format(checkin['valor_aula_momento']) }}</td>

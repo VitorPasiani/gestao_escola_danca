@@ -1,0 +1,86 @@
+{% extends 'base.html' %}
+{% block titulo %}Fechamento Mensal (DRE) - ATO{% endblock %}
+
+{% block conteudo %}
+<h2 class="mb-4">Fechamento de Caixa (DRE)</h2>
+
+<div class="card shadow-sm border-0 mb-4" style="border-radius: 12px;">
+    <div class="card-header card-header-ato" style="border-radius: 12px 12px 0 0;">
+        <h5 class="mb-0">Parâmetros do Mês</h5>
+    </div>
+    <div class="card-body bg-light">
+        <form action="/dre_mensal" method="POST" autocomplete="off">
+            <div class="row align-items-end">
+                <div class="col-md-3 mb-3">
+                    <label class="form-label fw-bold">Mês de Ref. (MM/AAAA)*</label>
+                    <input type="text" name="mes_referencia" class="form-control" placeholder="Ex: 03/2026" maxlength="7" required value="{{ relatorio.mes_referencia if relatorio else '' }}">
+                </div>
+                <div class="col-md-3 mb-3">
+                    <label class="form-label fw-bold">Despesas Fixas (R$)</label>
+                    <input type="number" step="0.01" name="despesas_fixas" class="form-control" placeholder="Aluguel, Luz..." value="{{ relatorio.despesas_fixas if relatorio else '' }}">
+                </div>
+                <div class="col-md-3 mb-3">
+                    <label class="form-label fw-bold">Retenção P/ Caixa (R$)</label>
+                    <input type="number" step="0.01" name="retencao_caixa" class="form-control" placeholder="Poupança ATO" value="{{ relatorio.retencao_caixa if relatorio else '' }}">
+                </div>
+                <div class="col-md-3 mb-3">
+                    <button type="submit" class="btn badge-ato w-100 py-2 shadow-sm" onclick="this.disabled=true; this.form.submit();">Gerar DRE</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% if relatorio %}
+<div class="row g-3">
+    <div class="col-md-4">
+        <div class="card text-center shadow-sm h-100 border-0" style="background-color: #f8f9fa;">
+            <div class="card-body">
+                <h6 class="text-muted text-uppercase mb-2">Entradas Gerais (Receita Bruta)</h6>
+                <h3 class="text-primary fw-bold">R$ {{ "%.2f"|format(relatorio.receita_bruta) }}</h3>
+                <small class="text-muted">Tudo que os alunos pagaram</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card text-center shadow-sm h-100 border-0" style="background-color: #fff3cd;">
+            <div class="card-body">
+                <h6 class="text-muted text-uppercase mb-2">Saída 1: Repasses (Professores)</h6>
+                <h3 class="text-warning fw-bold">- R$ {{ "%.2f"|format(relatorio.total_repasses) }}</h3>
+                <small class="text-muted">Pagamento de parceiros (75%)</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card text-center shadow-sm h-100 border-0" style="background-color: #e2e3e5;">
+            <div class="card-body">
+                <h6 class="text-muted text-uppercase mb-2">Saída 2: Despesas Fixas</h6>
+                <h3 class="text-secondary fw-bold">- R$ {{ "%.2f"|format(relatorio.despesas_fixas) }}</h3>
+                <small class="text-muted">Contas da escola</small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card mt-4 shadow border-0" style="border-radius: 12px; border-left: 8px solid #203760 !important;">
+    <div class="card-body p-4">
+        <div class="row align-items-center">
+            <div class="col-md-4 border-end text-center">
+                <h5 class="text-muted mb-1">Lucro Operacional</h5>
+                <h2 class="{{ 'text-success' if relatorio.lucro_operacional >= 0 else 'text-danger' }} fw-bold mb-0">
+                    R$ {{ "%.2f"|format(relatorio.lucro_operacional) }}
+                </h2>
+            </div>
+            <div class="col-md-4 border-end text-center">
+                <h6 class="text-muted mb-1">Caixa Escola (Retenção)</h6>
+                <h4 class="fw-bold mb-0 text-primary">R$ {{ "%.2f"|format(relatorio.retencao_caixa) }}</h4>
+            </div>
+            <div class="col-md-4 text-center">
+                <h6 class="text-muted mb-1">Repasse SÓCIAS (50% Cada)</h6>
+                <h3 class="badge badge-ato fs-4 mb-0" style="color: black !important;">R$ {{ "%.2f"|format(relatorio.repasse_socias) }} / cada</h3>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

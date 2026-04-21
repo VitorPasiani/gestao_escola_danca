@@ -24,6 +24,12 @@
 
     <h2 class="mb-4">{% if inativas %}Arquivo Morto: Turmas{% else %}Turmas Ativas{% endif %}</h2>
 
+    <div class="d-flex justify-content-end mb-3">
+        {% if not inativos %}
+            <a href="/cadastrar_turma" class="btn badge-ato shadow-sm">+ Nova Turma</a>
+        {% endif %}
+    </div>
+
     <table class="table table-hover mt-3 shadow-sm tabela-datatable">
         <thead>
             <tr>

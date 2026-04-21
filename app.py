@@ -36,7 +36,14 @@ from operacoes import (
     buscar_valor_aula_por_inscricao,
     listar_ultimos_checkins,
     realizar_inscricao_aluno,
-    listar_matriculas_ativas
+    listar_pendencias_particulares,
+    faturar_aulas_selecionadas,
+    listar_detalhes_inadimplencia,
+    executar_limpeza_inadimplentes,
+    gerar_relatorio_dre,
+    consultar_saldos,
+    registrar_saque,
+    listar_historico_saques
 )
 
 import sqlite3
@@ -473,6 +480,10 @@ def rota_checkin_particular():
         id_inscricao = request.form.get('id_inscricao')
         data_aula = request.form.get('data_aula')
         
+        if not id_inscricao:
+            flash("Atenção: Por favor, selecione um aluno válido na lista para registrar a presença.", "warning")
+            return redirect('/checkin_particular')
+        
         valor_aula = buscar_valor_aula_por_inscricao(id_inscricao)
         
         try:
@@ -489,6 +500,63 @@ def rota_checkin_particular():
     return render_template('checkin_particular.html', 
                            lista_inscricoes=inscricoes,
                            lista_historico=historico)
+
+@app.route('/faturamento_particulares', methods=['GET', 'POST'])
+def rota_faturamento_particulares():
+    if request.method == 'POST':
+        aulas_selecionadas = request.form.getlist('aulas_selecionadas')
+        
+        if not aulas_selecionadas:
+            flash("Você esqueceu de marcar as aulas para faturamento!", "warning")
+        else:
+            mensagem = faturar_aulas_selecionadas(aulas_selecionadas)
+            flash(mensagem, "success")
+            
+        return redirect('/faturamento_particulares')
+
+    pendencias = listar_pendencias_particulares()
+    return render_template('faturamento_particulares.html', alunos_pendentes=pendencias)
+
+### RELATÓRIOS E LIMPEZAS INADIMPLENTES ###
+@app.route('/painel_inadimplencia', methods=['GET', 'POST'])
+def rota_painel_inadimplencia():
+    if request.method == 'POST':
+        mensagem = executar_limpeza_inadimplentes()
+        flash(mensagem, "danger")
+        return redirect('/painel_inadimplencia')
+
+    lista = listar_detalhes_inadimplencia()
+    return render_template('painel_inadimplencia.html', inadimplentes=lista)
+
+@app.route('/dre_mensal', methods=['GET', 'POST'])
+def rota_dre_mensal():
+    relatorio = None
+    
+    if request.method == 'POST':
+        mes_referencia = request.form.get('mes_referencia')
+        despesas_fixas = float(request.form.get('despesas_fixas') or 0.0)
+        retencao_caixa = float(request.form.get('retencao_caixa') or 0.0)
+        
+        relatorio = gerar_relatorio_dre(mes_referencia, despesas_fixas, retencao_caixa)
+        
+    return render_template('dre_mensal.html', relatorio=relatorio)
+
+##### FINANCEIRO - SAQUES E SALDOS #####
+@app.route('/gestao_caixas', methods=['GET', 'POST'])
+def rota_gestao_caixas():
+    if request.method == 'POST':
+        caixa_origem = request.form.get('caixa_origem')
+        descricao = request.form.get('descricao')
+        valor = float(request.form.get('valor'))
+        
+        mensagem, categoria = registrar_saque(caixa_origem, descricao, valor)
+        flash(mensagem, categoria)
+        return redirect('/gestao_caixas')
+        
+    saldos_atuais = consultar_saldos()
+    historico = listar_historico_saques()
+    
+    return render_template('gestao_caixas.html', saldos=saldos_atuais, historico=historico)
 
 ## MAIN ##
 if __name__ == '__main__':

@@ -1,0 +1,66 @@
+{% extends 'base.html' %}
+
+{% block titulo %}Faturamento de Particulares - ATO{% endblock %}
+
+{% block conteudo %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>Faturamento: Aulas Particulares</h2>
+</div>
+
+<div class="card shadow-sm border-0" style="border-radius: 12px;">
+    <div class="card-body">
+        
+        {% if not alunos_pendentes %}
+            <div class="alert alert-info text-center">
+                ✨ Nenhuma aula particular pendente de faturamento no momento.
+            </div>
+        {% else %}
+            <form action="/faturamento_particulares" method="POST">
+                
+                <div class="accordion" id="accordionAlunos">
+                    {% for id_aluno, dados in alunos_pendentes.items() %}
+                    <div class="accordion-item mb-3 border shadow-sm" style="border-radius: 8px; overflow: hidden;">
+                        
+                        <h2 class="accordion-header" id="heading{{ id_aluno }}">
+                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapse{{ id_aluno }}">
+                                <div class="d-flex justify-content-between w-100 pe-3">
+                                    <span class="fw-bold text-dark">{{ dados.nome }}</span>
+                                    <span>
+                                        <span class="badge bg-secondary me-2">{{ dados.total_aulas }} aula(s) pendente(s)</span>
+                                        <strong class="text-success">Total: R$ {{ "%.2f"|format(dados.valor_total) }}</strong>
+                                    </span>
+                                </div>
+                            </button>
+                        </h2>
+
+                        <div id="collapse{{ id_aluno }}" class="accordion-collapse collapse" data-bs-parent="#accordionAlunos">
+                            <div class="accordion-body bg-light">
+                                <p class="text-muted small mb-2">Selecione as aulas que estão sendo pagas agora:</p>
+                                
+                                {% for aula in dados.aulas_detalhadas %}
+                                <div class="form-check p-2 mb-2 border-bottom d-flex align-items-center">
+                                    <input class="form-check-input ms-1 me-3" type="checkbox" name="aulas_selecionadas" value="{{ aula.id_frequencia }}" id="check_{{ aula.id_frequencia }}">
+                                    <label class="form-check-label w-100 d-flex justify-content-between cursor-pointer" for="check_{{ aula.id_frequencia }}">
+                                        <span><strong>{{ aula.data[8:10] }}/{{ aula.data[5:7] }}/{{ aula.data[0:4] }}</strong> - {{ aula.turma }}</span>
+                                        <span class="text-primary fw-bold">R$ {{ "%.2f"|format(aula.valor) }}</span>
+                                    </label>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+
+                    </div>
+                    {% endfor %}
+                </div>
+
+                <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-4">
+                    <button type="submit" class="btn badge-ato py-2 px-4 shadow-sm" onclick="this.disabled=true; this.form.submit();">
+                        ✔️ Faturar Aulas Selecionadas
+                    </button>
+                </div>
+            </form>
+        {% endif %}
+
+    </div>
+</div>
+{% endblock %}

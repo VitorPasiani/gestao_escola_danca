@@ -1,6 +1,6 @@
 import sqlite3
 import calendar
-from datetime import datetime
+from datetime import datetime, timedelta
 import re
 
 ##### UTILS #####
@@ -149,7 +149,7 @@ def listar_alunos():
 def listar_alunos_inativos():
     conexao, cursor = conectar_banco()
 
-    cursor.execute('SELECT id_aluno, nome, contato_1, contato_2, responsavel FROM alunos WHERE ativo = 0 ORDER BY nome ASC')
+    cursor.execute('SELECT id_aluno, nome, contato_1, contato_2, responsavel, motivo_inativacao FROM alunos WHERE ativo = 0 ORDER BY nome ASC')
     alunos_banco = cursor.fetchall()
     conexao.close()
 
@@ -160,20 +160,22 @@ def listar_alunos_inativos():
             "nome": a[1],
             "contato_1": formatar_telefone(a[2]),
             "contato_2": formatar_telefone(a[3]),
-            "responsavel": a[4] if a[4] else "-"
+            "responsavel": a[4] if a[4] else "-",
+            "motivo_inativacao": a[5] if a[5] else "Decisão do Aluno"
         })
             
     return lista_inativos
 
-def inativar_aluno(id_aluno):
+
+def inativar_aluno(id_aluno, motivo="Decisão do Aluno"):
     conexao, cursor = conectar_banco()
 
     sql = '''
         UPDATE alunos
-        SET ativo = 0
+        SET ativo = 0, motivo_inativacao = ?
         WHERE id_aluno = ?
     '''
-    cursor.execute(sql, (id_aluno,))
+    cursor.execute(sql, (motivo, id_aluno))
     conexao.commit()
     conexao.close()
 
@@ -633,6 +635,86 @@ def listar_ultimos_checkins(limite=20):
     conexao.close()
     return [{"data_aula": r[0], "nome_aluno": r[1], "nome_turma": r[2], "valor_aula_momento": r[3]} for r in res]
 
+def listar_pendencias_particulares():
+    conexao, cursor = conectar_banco()
+    
+    sql = '''
+        SELECT 
+            a.id_aluno, a.nome,
+            t.nome_turma, 
+            f.id_frequencia, f.data_aula, f.valor_aula_momento
+        FROM frequencia_particulares f
+        JOIN inscricoes i ON f.id_inscricao = i.id_inscricao
+        JOIN alunos a ON i.id_aluno = a.id_aluno
+        JOIN turmas t ON i.id_turma = t.id_turma
+        WHERE f.faturado = 0
+        ORDER BY a.nome ASC, f.data_aula ASC
+    '''
+    cursor.execute(sql)
+    resultados = cursor.fetchall()
+    conexao.close()
+
+    alunos_pendentes = {}
+    for res in resultados:
+        id_aluno, nome_aluno, nome_turma, id_freq, data_aula, valor = res
+        
+        if id_aluno not in alunos_pendentes:
+            alunos_pendentes[id_aluno] = {
+                'nome': nome_aluno,
+                'total_aulas': 0,
+                'valor_total': 0.0,
+                'aulas_detalhadas': []
+            }
+            
+        alunos_pendentes[id_aluno]['total_aulas'] += 1
+        alunos_pendentes[id_aluno]['valor_total'] += valor
+        alunos_pendentes[id_aluno]['aulas_detalhadas'].append({
+            'id_frequencia': id_freq,
+            'turma': nome_turma,
+            'data': data_aula,
+            'valor': valor
+        })
+        
+    return alunos_pendentes
+
+def faturar_aulas_selecionadas(ids_frequencias):
+    if not ids_frequencias:
+        return "Nenhuma aula foi selecionada."
+
+    conexao, cursor = conectar_banco()
+    ids_int = [int(i) for i in ids_frequencias]
+    placeholders = ','.join(['?'] * len(ids_int))
+    hoje_str = datetime.now().strftime("%d/%m/%Y")
+    mes_ref = datetime.now().strftime("%m/%Y")
+
+    sql_busca = f'''
+        SELECT i.id_aluno, i.id_turma, SUM(f.valor_aula_momento)
+        FROM frequencia_particulares f
+        JOIN inscricoes i ON f.id_inscricao = i.id_inscricao
+        WHERE f.id_frequencia IN ({placeholders})
+        GROUP BY i.id_aluno, i.id_turma
+    '''
+    cursor.execute(sql_busca, ids_int)
+    agrupados = cursor.fetchall()
+
+    for grupo in agrupados:
+        id_aluno, id_turma, valor_total = grupo
+        sql_pag = '''
+            INSERT INTO pagamentos (id_aluno, id_turma, mes_referencia, data_vencimento, valor_final, status, data_pagamento)
+            VALUES (?, ?, ?, ?, ?, 'Pago', ?)
+        '''
+        cursor.execute(sql_pag, (id_aluno, id_turma, mes_ref, hoje_str, valor_total, hoje_str))
+
+
+        cursor.execute('UPDATE saldos_caixa SET saldo_principal = saldo_principal + ? WHERE id_saldo = 1', (valor_total,))
+
+    sql_update = f'UPDATE frequencia_particulares SET faturado = 1 WHERE id_frequencia IN ({placeholders})'
+    cursor.execute(sql_update, ids_int)
+
+    conexao.commit()
+    conexao.close()
+    return f"Sucesso! {len(ids_frequencias)} aulas faturadas e valor transferido para o Caixa Principal."
+
 ##### EVENTOS ######
 def cadastrar_evento(nome_evento, data_evento=None):
     conexao, cursor = conectar_banco()
@@ -712,13 +794,12 @@ def cadastrar_transacao_evento(id_evento, descricao, tipo, valor):
 ##### AULAS AVULSAS ######
 def cadastrar_aula_avulsa(aluno_nome, nome_professor, data_aula, valor_total_aula_avulsa, percentual_repasse=0):
     conexao, cursor = conectar_banco()
-
     cursor.execute("SELECT id_professor FROM professores WHERE nome LIKE ?", (f'%{nome_professor}%',))
     resultado = cursor.fetchone()
 
     if not resultado:
         conexao.close()
-        return f"Ops! Não encontrei nenhum professor com o nome '{nome_professor}'."
+        return f"Professor '{nome_professor}' não encontrado."
 
     id_professor = resultado[0]
     repasse_prof = valor_total_aula_avulsa * (percentual_repasse / 100)
@@ -728,13 +809,13 @@ def cadastrar_aula_avulsa(aluno_nome, nome_professor, data_aula, valor_total_aul
         INSERT INTO aulas_avulsas (aluno_nome, id_professor, data_aula, valor_total_aula_avulsa, repasse_prof, lucro_caixa_avulso)
         VALUES (?, ?, ?, ?, ?, ?)
     '''
-    valores = (aluno_nome, id_professor, data_aula, valor_total_aula_avulsa, repasse_prof, lucro_caixa_avulso)
+    cursor.execute(sql, (aluno_nome, id_professor, data_aula, valor_total_aula_avulsa, repasse_prof, lucro_caixa_avulso))
 
-    cursor.execute(sql, valores)
+    cursor.execute('UPDATE saldos_caixa SET saldo_avulsas = saldo_avulsas + ? WHERE id_saldo = 1', (lucro_caixa_avulso,))
+
     conexao.commit()
     conexao.close()
-
-    return f"Aula avulsa registrada! Lucro para a escola: R${lucro_caixa_avulso:.2f}"
+    return f"Aula registrada! +R${lucro_caixa_avulso:.2f} no Caixa Avulsas."
 
 def listar_aulas_avulsas():
     conexao, cursor = conectar_banco()
@@ -896,52 +977,224 @@ def deletar_pagamento(id_pagamento):
 
     return "Registro de pagamento excluído!"
 
+def processar_fechamento_mensal(mes_referencia):
+
+    conexao, cursor = conectar_banco()
+    
+    sql = '''
+        SELECT 
+            i.id_aluno, 
+            i.id_turma, 
+            SUM(f.valor_aula_momento) as total_devido,
+            COUNT(f.id_frequencia) as qtd_aulas,
+            GROUP_CONCAT(f.id_frequencia) as ids_frequencias
+        FROM frequencia_particulares f
+        JOIN inscricoes i ON f.id_inscricao = i.id_inscricao
+        WHERE f.faturado = 0
+        GROUP BY i.id_aluno, i.id_turma
+    '''
+    cursor.execute(sql)
+    pendencias = cursor.fetchall()
+    
+    for p in pendencias:
+        id_aluno, id_turma, valor_total, qtd, ids = p
+        
+        sql_pagamento = '''
+            INSERT INTO pagamentos (id_aluno, id_turma, mes_referencia, valor_final, status, data_vencimento)
+            VALUES (?, ?, ?, ?, 'Pendente', ?)
+        '''
+        data_vencimento = f"10/{mes_referencia}" 
+        cursor.execute(sql_pagamento, (id_aluno, id_turma, mes_referencia, valor_total, data_vencimento))
+        
+        lista_ids = ids.split(',')
+        for id_f in lista_ids:
+            cursor.execute('UPDATE frequencia_particulares SET faturado = 1 WHERE id_frequencia = ?', (id_f,))
+            
+    conexao.commit()
+    conexao.close()
+    return f"Fechamento de {mes_referencia} concluído! {len(pendencias)} cobranças geradas."
+
 
 ##### INADIMPLENCIAS ######
-
-def relatorio_inadimplencia():
+def listar_detalhes_inadimplencia():
     conexao, cursor = conectar_banco()
-
+    
     sql = '''
-       SELECT
-            pagamentos.id_pagamento,
-            alunos.nome,
-            pagamentos.data_vencimento,
-            pagamentos.valor_final,
-            alunos.id_aluno
-        FROM pagamentos
-        JOIN alunos ON pagamentos.id_aluno = alunos.id_aluno
-        WHERE pagamentos.status = 'Pendente' AND alunos.ativo = 1
+        SELECT 
+            p.id_pagamento, a.nome, t.nome_turma, t.valor_mensal_base,
+            p.data_vencimento, p.valor_final, a.id_aluno, t.is_particular
+        FROM pagamentos p
+        JOIN alunos a ON p.id_aluno = a.id_aluno
+        JOIN turmas t ON p.id_turma = t.id_turma
+        WHERE p.status = 'Pendente' AND a.ativo = 1
     '''
-
     cursor.execute(sql)
     pendentes = cursor.fetchall()
     conexao.close()
 
     hoje = datetime.now()
-    lista_inadimplentes = []
+    relatorio = []
 
     for pag in pendentes:
-        id_pag = pag[0]
-        nome_aluno = pag[1]
-        data_venc_str = pag[2]
-        valor = pag[3]
-        id_aluno = pag[4]
+        id_pag, nome_aluno, nome_turma, valor_base, data_venc_str, valor_final_registrado, id_aluno, is_particular = pag
         
         try:
-            data_venc = datetime.strptime(data_venc_str, "%d/%m/%Y")
-            dias_atraso = (hoje - data_venc).days
+            data_limite = datetime.strptime(data_venc_str, "%d/%m/%Y")
+            atraso = (hoje - data_limite).days
+            
+            valor_atualizado = valor_final_registrado
+            status_atraso = "Pendente"
+            multa_aplicada = False
+            pode_inativar = False
 
-            if dias_atraso > 0:
-                lista_inadimplentes.append({
-                    "id_pagamento": id_pag,
-                    "nome_aluno": nome_aluno,
-                    "id_aluno": id_aluno,
-                    "dias_atraso": dias_atraso,
-                    "valor_pendente": valor
-                })
+            if atraso > 0:
+                if not is_particular:
+                    status_atraso = "Em Atraso"
+                    if atraso > 10:
+                        valor_atualizado = valor_base * 1.10
+                        multa_aplicada = True
                 
-        except ValueError:
-            pass
+                else:
+                    status_atraso = "Atraso (Pós-Pago)"
+                
+                if atraso > 30:
+                    pode_inativar = True
+            
+            relatorio.append({
+                "id_pagamento": id_pag,
+                "id_aluno": id_aluno,
+                "aluno": nome_aluno,
+                "turma": nome_turma,
+                "data_limite": data_venc_str,
+                "valor_original": valor_final_registrado,
+                "valor_atualizado": valor_atualizado,
+                "dias_atraso": atraso if atraso > 0 else 0,
+                "status": status_atraso,
+                "multa_aplicada": multa_aplicada,
+                "pode_inativar": pode_inativar,
+                "is_particular": bool(is_particular)
+            })
+        except Exception as e:
+            continue
+            
+    return relatorio
 
-    return lista_inadimplentes
+def executar_limpeza_inadimplentes():
+    inadimplentes = listar_detalhes_inadimplencia()
+    alunos_para_inativar = [i['id_aluno'] for i in inadimplentes if i['pode_inativar']]
+    
+    contador = 0
+    for id_aluno in set(alunos_para_inativar):
+        inativar_aluno(id_aluno, motivo="Inadimplência")
+        contador += 1
+        
+    return f"Limpeza concluída! {contador} alunos foram inativados por inadimplência."
+
+##### FINACEIRO #####
+
+def gerar_relatorio_dre(mes_referencia, despesas_fixas=0.0, retencao_caixa=0.0):
+    conexao, cursor = conectar_banco()
+    
+    sql_mensalidades = '''
+        SELECT SUM(p.valor_final) 
+        FROM pagamentos p 
+        WHERE p.mes_referencia = ? AND p.status = 'Pago'
+    '''
+    cursor.execute(sql_mensalidades, (mes_referencia,))
+    receita_mensalidades = cursor.fetchone()[0] or 0.0
+    
+    sql_repasses = '''
+        SELECT SUM(p.valor_final * 0.75) 
+        FROM pagamentos p
+        JOIN turmas t ON p.id_turma = t.id_turma
+        WHERE p.mes_referencia = ? AND p.status = 'Pago' AND t.tipo_gestao = 'Parceiro'
+    '''
+    cursor.execute(sql_repasses, (mes_referencia,))
+    repasse_mensalidades = cursor.fetchone()[0] or 0.0
+
+    busca_mes = f"%{mes_referencia}" 
+    sql_avulsas = '''
+        SELECT SUM(lucro_caixa_avulso), SUM(repasse_prof)
+        FROM aulas_avulsas
+        WHERE data_aula LIKE ?
+    '''
+    cursor.execute(sql_avulsas, (busca_mes,))
+    res_avulsas = cursor.fetchone()
+    lucro_escola_avulsas = res_avulsas[0] or 0.0
+    repasse_prof_avulsas = res_avulsas[1] or 0.0
+    
+    conexao.close()
+
+    receita_total_avulsas = lucro_escola_avulsas + repasse_prof_avulsas
+    receita_bruta_total = receita_mensalidades + receita_total_avulsas
+    
+    total_repasses = repasse_mensalidades + repasse_prof_avulsas
+    receita_liquida_escola = receita_bruta_total - total_repasses
+    
+    lucro_operacional = receita_liquida_escola - despesas_fixas
+    
+    valor_distribuir = lucro_operacional - retencao_caixa
+    repasse_socias = valor_distribuir / 2 if valor_distribuir > 0 else 0.0
+
+    return {
+        "mes_referencia": mes_referencia,
+        "receita_bruta": receita_bruta_total,
+        "total_repasses": total_repasses,
+        "receita_liquida_escola": receita_liquida_escola,
+        "despesas_fixas": despesas_fixas,
+        "lucro_operacional": lucro_operacional,
+        "retencao_caixa": retencao_caixa,
+        "repasse_socias": repasse_socias
+    }
+
+def consultar_saldos():
+    conexao, cursor = conectar_banco()
+    cursor.execute('SELECT saldo_principal, saldo_matriculas, saldo_avulsas FROM saldos_caixa WHERE id_saldo = 1')
+    resultado = cursor.fetchone()
+    conexao.close()
+    
+    if resultado:
+        return {"Principal": resultado[0], "Matriculas": resultado[1], "Avulsas": resultado[2]}
+    return {"Principal": 0.0, "Matriculas": 0.0, "Avulsas": 0.0}
+
+def registrar_saque(caixa_origem, descricao, valor):
+    conexao, cursor = conectar_banco()
+    
+    saldos = consultar_saldos()
+    saldo_atual = saldos.get(caixa_origem, 0.0)
+    
+    if valor > saldo_atual:
+        conexao.close()
+        return f"Erro: Saldo insuficiente no caixa '{caixa_origem}'.", "danger"
+        
+    coluna = ""
+    if caixa_origem == "Principal": coluna = "saldo_principal"
+    elif caixa_origem == "Matriculas": coluna = "saldo_matriculas"
+    elif caixa_origem == "Avulsas": coluna = "saldo_avulsas"
+    
+    sql_update = f'UPDATE saldos_caixa SET {coluna} = {coluna} - ? WHERE id_saldo = 1'
+    cursor.execute(sql_update, (valor,))
+    
+    data_hoje = datetime.now().strftime("%d/%m/%Y %H:%M")
+    sql_insert = 'INSERT INTO historico_saques (caixa_origem, descricao, valor, data_saque) VALUES (?, ?, ?, ?)'
+    cursor.execute(sql_insert, (caixa_origem, descricao, valor, data_hoje))
+    
+    conexao.commit()
+    conexao.close()
+    return f"Saque de R$ {valor:.2f} registrado com sucesso!", "success"
+
+def listar_historico_saques():
+    conexao, cursor = conectar_banco()
+    cursor.execute('SELECT caixa_origem, descricao, valor, data_saque FROM historico_saques ORDER BY id_saque DESC LIMIT 50')
+    resultados = cursor.fetchall()
+    conexao.close()
+    
+    historico = []
+    for r in resultados:
+        historico.append({
+            "caixa": r[0],
+            "descricao": r[1],
+            "valor": r[2],
+            "data": r[3]
+        })
+    return historico
