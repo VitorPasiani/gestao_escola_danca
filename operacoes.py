@@ -60,13 +60,6 @@ def verificar_conflito_sala(sala, dias_semana_lista, hora_inicio_nova, hora_fim_
     conexao.close()
     return None
 
-def aluno_ja_tem_vinculo(id_aluno):
-    conexao, cursor = conectar_banco()
-    cursor.execute('SELECT COUNT(*) FROM inscricoes WHERE id_aluno = ? AND ativo = 1', (id_aluno,))
-    total = cursor.fetchone()[0]
-    conexao.close()
-    return total > 0
-
 ###### ALUNOS ######
 def cadastrar_aluno(nome, cpf=None, rg=None, endereco=None, data_nascimento=None, email=None, contato_1=None, contato_2=None, responsavel=None):
     
@@ -221,6 +214,22 @@ def buscar_aluno(id_aluno):
     
     return None
 
+def aluno_ja_tem_vinculo(id_aluno):
+    conexao, cursor = conectar_banco()
+    cursor.execute("SELECT COUNT(*) FROM inscricoes WHERE id_aluno = ? AND status_academico = 'Ativo'", (id_aluno,))
+    total = cursor.fetchone()[0]
+    conexao.close()
+    return total > 0
+
+def verificar_vinculo_turma(id_aluno, id_turma):
+    conexao, cursor = conectar_banco()
+    cursor.execute("SELECT status_academico FROM inscricoes WHERE id_aluno = ? AND id_turma = ?", (id_aluno, id_turma))
+    resultado = cursor.fetchone()
+    conexao.close()
+    
+    if resultado:
+        return resultado[0]
+    return None
 
 ###### PROFESSORES ######
 def cadastrar_professor(nome, telefone=None, chave_pix=None):
@@ -525,7 +534,7 @@ def deletar_turma_definitivo(id_turma):
     
     return mensagem
 
-def listar_matriculas_ativas():
+def listar_matriculas(status_alvo='Ativo'):
     conexao, cursor = conectar_banco()
 
     sql = '''
@@ -541,10 +550,10 @@ def listar_matriculas_ativas():
         JOIN alunos a ON i.id_aluno = a.id_aluno
         JOIN turmas t ON i.id_turma = t.id_turma
         LEFT JOIN professores p ON t.id_professor = p.id_professor
-        WHERE i.ativo = 1 AND a.ativo = 1 AND t.ativo = 1
+        WHERE i.status_academico = ?
         ORDER BY a.nome ASC
     '''
-    cursor.execute(sql)
+    cursor.execute(sql, (status_alvo,))
     matriculas_banco = cursor.fetchall()
     conexao.close()
 
@@ -562,22 +571,34 @@ def listar_matriculas_ativas():
 
     return lista_matriculas
 
+def inativar_matricula(id_inscricao):
+    conexao, cursor = conectar_banco()
+    cursor.execute("UPDATE inscricoes SET status_academico = 'Inativo' WHERE id_inscricao = ?", (id_inscricao,))
+    conexao.commit()
+    conexao.close()
+    return "Vínculo encerrado com sucesso. O histórico foi movido para as matrículas inativas."
+
+def reativar_matricula(id_inscricao):
+    conexao, cursor = conectar_banco()
+    cursor.execute("UPDATE inscricoes SET status_academico = 'Ativo', status_pagamento_matricula = 'Pendente' WHERE id_inscricao = ?", (id_inscricao,))
+    conexao.commit()
+    conexao.close()
+    return "Matrícula reativada! Verifique a necessidade de nova taxa de adesão."
 
 ##### PARTICULARES ######
-def realizar_inscricao_aluno(id_aluno, id_turma, pagou_matricula=False):
+def realizar_inscricao_aluno(id_aluno, id_turma, status_matricula):
     conexao, cursor = conectar_banco()
     data_hoje = datetime.now().strftime("%d/%m/%Y")
-    status_mat = 'Pago' if pagou_matricula else 'Pendente'
 
     try:
         sql_ins = '''
             INSERT INTO inscricoes (id_aluno, id_turma, data_inscricao, status_pagamento_matricula)
             VALUES (?, ?, ?, ?)
         '''
-        cursor.execute(sql_ins, (id_aluno, id_turma, data_hoje, status_mat))
+        cursor.execute(sql_ins, (id_aluno, id_turma, data_hoje, status_matricula))
         
-        if pagou_matricula:
-            cursor.execute('UPDATE saldos_caixa SET saldo_matriculas = saldo_matriculas + 100.0')
+        if status_matricula == 'Pago':
+            cursor.execute('UPDATE saldos_caixa SET saldo_matriculas = saldo_matriculas + 100.0 WHERE id_saldo = 1')
             
         conexao.commit()
         return "Inscrição realizada com sucesso!"
@@ -677,7 +698,7 @@ def listar_pendencias_particulares():
         
     return alunos_pendentes
 
-def faturar_aulas_selecionadas(ids_frequencias):
+def faturar_aulas_selecionadas(ids_frequencias, taxa_maquininha=0.0):
     if not ids_frequencias:
         return "Nenhuma aula foi selecionada."
 
@@ -699,21 +720,40 @@ def faturar_aulas_selecionadas(ids_frequencias):
 
     for grupo in agrupados:
         id_aluno, id_turma, valor_total = grupo
+        
         sql_pag = '''
-            INSERT INTO pagamentos (id_aluno, id_turma, mes_referencia, data_vencimento, valor_final, status, data_pagamento)
-            VALUES (?, ?, ?, ?, ?, 'Pago', ?)
+            INSERT INTO pagamentos (id_aluno, id_turma, mes_referencia, data_vencimento, taxa_maquininha, valor_final, status, data_pagamento)
+            VALUES (?, ?, ?, ?, ?, ?, 'Pago', ?)
         '''
-        cursor.execute(sql_pag, (id_aluno, id_turma, mes_ref, hoje_str, valor_total, hoje_str))
+        cursor.execute(sql_pag, (id_aluno, id_turma, mes_ref, hoje_str, taxa_maquininha, valor_total, hoje_str))
 
-
-        cursor.execute('UPDATE saldos_caixa SET saldo_principal = saldo_principal + ? WHERE id_saldo = 1', (valor_total,))
+        valor_liquido = valor_total - (valor_total * taxa_maquininha)
+        cursor.execute('UPDATE saldos_caixa SET saldo_principal = saldo_principal + ? WHERE id_saldo = 1', (valor_liquido,))
 
     sql_update = f'UPDATE frequencia_particulares SET faturado = 1 WHERE id_frequencia IN ({placeholders})'
     cursor.execute(sql_update, ids_int)
 
     conexao.commit()
     conexao.close()
-    return f"Sucesso! {len(ids_frequencias)} aulas faturadas e valor transferido para o Caixa Principal."
+    return f"Sucesso! {len(ids_frequencias)} aulas faturadas. O valor líquido foi transferido para o Caixa Principal."
+
+def quitar_taxa_matricula(id_inscricao, usar_maquininha=False, taxa_maquininha=0.0):
+    conexao, cursor = conectar_banco()
+
+    cursor.execute("UPDATE inscricoes SET status_pagamento_matricula = 'Pago' WHERE id_inscricao = ?", (id_inscricao,))
+
+    valor_base = 100.0
+    if usar_maquininha and taxa_maquininha > 0:
+        valor_liquido = valor_base - (valor_base * taxa_maquininha)
+    else:
+        valor_liquido = valor_base
+
+    cursor.execute('UPDATE saldos_caixa SET saldo_matriculas = saldo_matriculas + ? WHERE id_saldo = 1', (valor_liquido,))
+
+    conexao.commit()
+    conexao.close()
+    
+    return f"Taxa de matrícula quitada! +R$ {valor_liquido:.2f} adicionados ao Caixa Matrículas."
 
 ##### EVENTOS ######
 def cadastrar_evento(nome_evento, data_evento=None):
@@ -792,7 +832,7 @@ def cadastrar_transacao_evento(id_evento, descricao, tipo, valor):
 
 
 ##### AULAS AVULSAS ######
-def cadastrar_aula_avulsa(aluno_nome, nome_professor, data_aula, valor_total_aula_avulsa, percentual_repasse=0):
+def cadastrar_aula_avulsa(aluno_nome, nome_professor, data_aula, valor_total_aula_avulsa, percentual_repasse=0, taxa_maquininha=0.0):
     conexao, cursor = conectar_banco()
     cursor.execute("SELECT id_professor FROM professores WHERE nome LIKE ?", (f'%{nome_professor}%',))
     resultado = cursor.fetchone()
@@ -802,14 +842,18 @@ def cadastrar_aula_avulsa(aluno_nome, nome_professor, data_aula, valor_total_aul
         return f"Professor '{nome_professor}' não encontrado."
 
     id_professor = resultado[0]
-    repasse_prof = valor_total_aula_avulsa * (percentual_repasse / 100)
-    lucro_caixa_avulso = valor_total_aula_avulsa - repasse_prof
+    
+    valor_liquido_real = valor_total_aula_avulsa - (valor_total_aula_avulsa * taxa_maquininha)
+    
+    repasse_prof = valor_liquido_real * (percentual_repasse / 100)
+    
+    lucro_caixa_avulso = valor_liquido_real - repasse_prof
 
     sql = '''
-        INSERT INTO aulas_avulsas (aluno_nome, id_professor, data_aula, valor_total_aula_avulsa, repasse_prof, lucro_caixa_avulso)
-        VALUES (?, ?, ?, ?, ?, ?)
+        INSERT INTO aulas_avulsas (aluno_nome, id_professor, data_aula, valor_total_aula_avulsa, taxa_maquininha, repasse_prof, lucro_caixa_avulso)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
     '''
-    cursor.execute(sql, (aluno_nome, id_professor, data_aula, valor_total_aula_avulsa, repasse_prof, lucro_caixa_avulso))
+    cursor.execute(sql, (aluno_nome, id_professor, data_aula, valor_total_aula_avulsa, taxa_maquininha, repasse_prof, lucro_caixa_avulso))
 
     cursor.execute('UPDATE saldos_caixa SET saldo_avulsas = saldo_avulsas + ? WHERE id_saldo = 1', (lucro_caixa_avulso,))
 
@@ -1091,7 +1135,6 @@ def executar_limpeza_inadimplentes():
     return f"Limpeza concluída! {contador} alunos foram inativados por inadimplência."
 
 ##### FINACEIRO #####
-
 def gerar_relatorio_dre(mes_referencia, despesas_fixas=0.0, retencao_caixa=0.0):
     conexao, cursor = conectar_banco()
     
@@ -1104,7 +1147,7 @@ def gerar_relatorio_dre(mes_referencia, despesas_fixas=0.0, retencao_caixa=0.0):
     receita_mensalidades = cursor.fetchone()[0] or 0.0
     
     sql_repasses = '''
-        SELECT SUM(p.valor_final * 0.75) 
+        SELECT SUM((p.valor_final - (p.valor_final * IFNULL(p.taxa_maquininha, 0.0))) * 0.75) 
         FROM pagamentos p
         JOIN turmas t ON p.id_turma = t.id_turma
         WHERE p.mes_referencia = ? AND p.status = 'Pago' AND t.tipo_gestao = 'Parceiro'
@@ -1149,13 +1192,13 @@ def gerar_relatorio_dre(mes_referencia, despesas_fixas=0.0, retencao_caixa=0.0):
 
 def consultar_saldos():
     conexao, cursor = conectar_banco()
-    cursor.execute('SELECT saldo_principal, saldo_matriculas, saldo_avulsas FROM saldos_caixa WHERE id_saldo = 1')
+    cursor.execute('SELECT saldo_principal, saldo_matriculas, saldo_avulsas, saldo_reserva FROM saldos_caixa WHERE id_saldo = 1')
     resultado = cursor.fetchone()
     conexao.close()
     
     if resultado:
-        return {"Principal": resultado[0], "Matriculas": resultado[1], "Avulsas": resultado[2]}
-    return {"Principal": 0.0, "Matriculas": 0.0, "Avulsas": 0.0}
+        return {"Principal": resultado[0], "Matriculas": resultado[1], "Avulsas": resultado[2], "Reserva": resultado[3]}
+    return {"Principal": 0.0, "Matriculas": 0.0, "Avulsas": 0.0, "Reserva": 0.0}
 
 def registrar_saque(caixa_origem, descricao, valor):
     conexao, cursor = conectar_banco()

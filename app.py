@@ -31,6 +31,10 @@ from operacoes import (
     cadastrar_aula_avulsa,
     listar_aulas_avulsas,
     deletar_aula_avulsa,
+    listar_matriculas ,
+    inativar_matricula,
+    reativar_matricula,
+    verificar_vinculo_turma,
     registrar_frequencia_particular,
     listar_inscricoes_particulares,
     buscar_valor_aula_por_inscricao,
@@ -43,7 +47,8 @@ from operacoes import (
     gerar_relatorio_dre,
     consultar_saldos,
     registrar_saque,
-    listar_historico_saques
+    listar_historico_saques,
+    quitar_taxa_matricula
 )
 
 import sqlite3
@@ -148,29 +153,43 @@ def rota_nova_matricula():
     if request.method == 'POST':
         id_aluno = request.form.get('id_aluno')
         ids_turmas = request.form.getlist('id_turma') 
-        status_form = request.form.get('status_matricula')
-        
-        ja_e_aluno = aluno_ja_tem_vinculo(id_aluno)
+        status_form = request.form.get('status_matricula') 
         
         try:
+            # --- TRAVA DE SEGURANÇA (VERIFICA CONFLITOS ANTES DE TUDO) ---
+            for id_turma in ids_turmas:
+                if not id_turma: continue
+                
+                status_existente = verificar_vinculo_turma(id_aluno, id_turma)
+                
+                if status_existente == 'Ativo':
+                    flash("Conflito: O aluno já está ativamente matriculado em uma das turmas selecionadas!", "warning")
+                    return redirect('/nova_matricula')
+                elif status_existente == 'Inativo':
+                    flash("Conflito: O aluno já possui matrícula trancada nesta turma. Acesse o Arquivo Morto (Matrículas Inativas) para reativá-la!", "danger")
+                    return redirect('/nova_matricula')
+            # -----------------------------------------------------------------
+
+            ja_e_aluno = aluno_ja_tem_vinculo(id_aluno)
             pagou_taxa_nesta_sessao = False
 
             for id_turma in ids_turmas:
-                if not id_turma:
-                    continue
+                if not id_turma: continue
 
-                if not ja_e_aluno and not pagou_taxa_nesta_sessao:
-                    pagou_matricula_agora = True if status_form == 'Pago' else False
+                if ja_e_aluno:
+                    status_final = 'Isento' 
+                elif not pagou_taxa_nesta_sessao:
+                    status_final = status_form 
                     pagou_taxa_nesta_sessao = True
                 else:
-                    pagou_matricula_agora = False
+                    status_final = 'Isento' 
 
-                realizar_inscricao_aluno(id_aluno, id_turma, pagou_matricula_agora)
+                realizar_inscricao_aluno(id_aluno, id_turma, status_final)
 
             if ja_e_aluno:
-                msg_vinculo = "Aluno já cadastrado em outra turma! Inscrição realizada sem nova taxa de matrícula."
+                msg_vinculo = "Aluno já possuía vínculo ativo! Novas turmas adicionadas como Isentas de taxa."
             else:
-                msg_vinculo = "Novas matrículas realizadas com sucesso!"
+                msg_vinculo = "Matrícula(s) realizada(s) com sucesso!"
 
             flash(msg_vinculo, "success")
             return redirect('/matriculas') 
@@ -182,6 +201,45 @@ def rota_nova_matricula():
     alunos = listar_alunos()
     turmas = listar_turmas()
     return render_template('cadastrar_matricula.html', lista_alunos=alunos, lista_turmas=turmas)
+
+@app.route('/matriculas')
+def pagina_listar_matriculas():
+    matriculas = listar_matriculas(status_alvo='Ativo')
+    return render_template('listar_matriculas.html', lista_de_matriculas=matriculas, inativos=False)
+
+@app.route('/matriculas_inativas')
+def pagina_listar_matriculas_inativas():
+    matriculas = listar_matriculas(status_alvo='Inativo')
+    return render_template('listar_matriculas.html', lista_de_matriculas=matriculas, inativos=True)
+
+@app.route('/inativar_matricula/<int:id_inscricao>')
+def rota_inativar_matricula(id_inscricao):
+    mensagem = inativar_matricula(id_inscricao)
+    flash(mensagem, "warning")
+    return redirect('/matriculas')
+
+@app.route('/reativar_matricula/<int:id_inscricao>')
+def rota_reativar_matricula(id_inscricao):
+    mensagem = reativar_matricula(id_inscricao)
+    flash(mensagem, "success")
+    return redirect('/matriculas')
+
+@app.route('/quitar_taxa_matricula/<int:id_inscricao>', methods=['POST'])
+def rota_quitar_taxa_matricula(id_inscricao):
+    usar_maquininha = request.form.get('usar_maquininha') == '1'
+    taxa_str = request.form.get('taxa_maquininha')
+
+    taxa_decimal = 0.0
+    if usar_maquininha and taxa_str:
+        taxa_decimal = float(taxa_str) / 100.0
+
+    try:
+        mensagem = quitar_taxa_matricula(id_inscricao, usar_maquininha, taxa_decimal)
+        flash(mensagem, 'success')
+    except Exception as e:
+        flash(f"Erro ao baixar taxa: {str(e)}", 'danger')
+
+    return redirect('/matriculas')
 
 ### PROFESSORES ###
 @app.route('/cadastrar_professor', methods=['GET', 'POST'])
@@ -443,16 +501,25 @@ def rota_registrar_avulsa():
         nome_professor = request.form.get('nome_professor')
         data_aula = request.form.get('data_aula')
         valor_total = float(request.form.get('valor_total'))
-        
         tipo_gestao = request.form.get('tipo_gestao')
         
+        # --- CAPTURANDO A LÓGICA DA MAQUININHA ---
+        usar_maquininha = request.form.get('usar_maquininha') == '1'
+        taxa_str = request.form.get('taxa_maquininha')
+        
+        taxa_decimal = 0.0
+        if usar_maquininha and taxa_str:
+            taxa_decimal = float(taxa_str) / 100.0 # Transforma 5.0% em 0.05
+        # -----------------------------------------
+
         if tipo_gestao == 'Parceiro':
             percentual_repasse = 75.0
         else:
             percentual_repasse = 0.0
 
         try:
-            mensagem = cadastrar_aula_avulsa(aluno_nome, nome_professor, data_aula, valor_total, percentual_repasse)
+            # Passando a taxa_decimal como último parâmetro
+            mensagem = cadastrar_aula_avulsa(aluno_nome, nome_professor, data_aula, valor_total, percentual_repasse, taxa_decimal)
             flash(mensagem, 'success')
             return redirect('/aulas_avulsas')
         except Exception as e:
@@ -506,10 +573,17 @@ def rota_faturamento_particulares():
     if request.method == 'POST':
         aulas_selecionadas = request.form.getlist('aulas_selecionadas')
         
+        usar_maquininha = request.form.get('usar_maquininha') == '1'
+        taxa_str = request.form.get('taxa_maquininha')
+        
+        taxa_decimal = 0.0
+        if usar_maquininha and taxa_str:
+            taxa_decimal = float(taxa_str) / 100.0
+        
         if not aulas_selecionadas:
-            flash("Você esqueceu de marcar as aulas para faturamento!", "warning")
+            flash("Por favor marque as aulas para faturamento!", "warning")
         else:
-            mensagem = faturar_aulas_selecionadas(aulas_selecionadas)
+            mensagem = faturar_aulas_selecionadas(aulas_selecionadas, taxa_decimal)
             flash(mensagem, "success")
             
         return redirect('/faturamento_particulares')

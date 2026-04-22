@@ -1,11 +1,15 @@
 {% extends 'base.html' %}
 
-{% block titulo %}Alunos Matriculados - ATO Espaço de Dança{% endblock %}
+{% block titulo %}{% if inativos %}Arquivo Morto: Matrículas{% else %}Matrículas Ativas{% endif %}{% endblock %}
 
 {% block conteudo %}
     <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2 class="mb-0">Alunos Matriculados (Vínculos Ativos)</h2>
-        <a href="/nova_matricula" class="btn badge-ato shadow-sm">+ Nova Matrícula</a>
+        <h2 class="{% if inativos %}text-secondary{% endif %}">
+            {% if inativos %}📂 Arquivo Morto: Matrículas Encerradas{% else %}✅ Alunos Matriculados (Vínculos Ativos){% endif %}
+        </h2>
+        {% if not inativos %}
+            <a href="/nova_matricula" class="btn badge-ato shadow-sm">+ Nova Matrícula</a>
+        {% endif %}
     </div>
 
     <table class="table table-hover mt-3 shadow-sm tabela-datatable">
@@ -14,29 +18,38 @@
                 <th>Aluno</th>
                 <th>Turma</th>
                 <th>Professor(a)</th>
-                <th>Data da Matrícula</th>
-                <th class="text-center">Taxa de matrícula</th>
-                <th class="text-center">Status Acadêmico</th>
+                <th>Data Matrícula</th>
+                <th class="text-center">Taxa de Matrícula</th>
+                <th class="text-center">Ações</th>
             </tr>
         </thead>
         <tbody>
             {% for matricula in lista_de_matriculas %}
             <tr>
-                <td class="fw-bold">{{ matricula['nome_aluno'] }}</td>
-                <td>{{ matricula['nome_turma'] }}</td>
-                <td>{{ matricula['nome_professor'] }}</td>
-                <td>{{ matricula['data_inscricao'] }}</td>
+                <td class="fw-bold {% if inativos %}text-muted{% endif %}">{{ matricula['nome_aluno'] }}</td>
+                <td class="{% if inativos %}text-muted{% endif %}">{{ matricula['nome_turma'] }}</td>
+                <td class="{% if inativos %}text-muted{% endif %}">{{ matricula['nome_professor'] }}</td>
+                <td class="{% if inativos %}text-muted{% endif %}">{{ matricula['data_inscricao'] }}</td>
                 
                 <td class="text-center">
                     {% if matricula['status_pagamento'] == 'Pago' %}
                         <span class="badge bg-success">Pago</span>
+                    {% elif matricula['status_pagamento'] == 'Isento' %}
+                        <span class="badge bg-secondary">Isento</span>
                     {% else %}
-                        <span class="badge bg-warning text-dark">Pendente</span>
+                        <span class="badge bg-warning text-dark mb-1 d-block">Pendente</span>
+                        {% if not inativos %}
+                            <button type="button" class="btn btn-sm btn-outline-success" data-bs-toggle="modal" data-bs-target="#modalQuitar{{ matricula['id_inscricao'] }}">💲 Baixar</button>
+                        {% endif %}
                     {% endif %}
                 </td>
                 
                 <td class="text-center">
-                    <span class="badge bg-primary">{{ matricula['status_academico'] }}</span>
+                    {% if inativos %}
+                        <a href="/reativar_matricula/{{ matricula['id_inscricao'] }}" class="btn btn-sm btn-success" onclick="return confirm('Deseja reativar este vínculo?')">🔄 Reativar</a>
+                    {% else %}
+                        <a href="/inativar_matricula/{{ matricula['id_inscricao'] }}" class="btn btn-sm btn-outline-danger" onclick="return confirm('Deseja encerrar este vínculo?')">🚫 Cancelar</a>
+                    {% endif %}
                 </td>
             </tr>
             {% endfor %}

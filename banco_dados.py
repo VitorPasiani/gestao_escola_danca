@@ -117,7 +117,7 @@ def inicializar_banco():
         )
     ''')
 
-    # TABELA AULAS AVULSAS
+    # TABELA AULAS AVULSAS (Adicionado taxa_maquininha)
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS aulas_avulsas (
             id_aula INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -125,6 +125,7 @@ def inicializar_banco():
             id_professor INTEGER NOT NULL,
             data_aula TEXT NOT NULL,
             valor_total_aula_avulsa REAL NOT NULL,
+            taxa_maquininha REAL DEFAULT 0.0, -- NOVA COLUNA (Porcentagem, ex: 0.05 para 5%)
             repasse_prof REAL NOT NULL,
             lucro_caixa_avulso REAL NOT NULL,
                 
@@ -165,20 +166,20 @@ def inicializar_banco():
         )
     ''')
 
-    # TABELA SALDOS CAIXA
+# TABELA SALDOS CAIXA (Adicionado saldo_reserva)
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS saldos_caixa (
             id_saldo INTEGER PRIMARY KEY AUTOINCREMENT,
             saldo_principal REAL DEFAULT 0.0,
             saldo_matriculas REAL DEFAULT 0.0,
-            saldo_avulsas REAL DEFAULT 0.0
+            saldo_avulsas REAL DEFAULT 0.0,
+            saldo_reserva REAL DEFAULT 0.0 -- O 4º CAIXA DE SEGURANÇA
         )
     ''')
 
-    # Verificar se a tabela de saldos_caixa está vazia e inserir um registro inicial se necessário
     cursor.execute('SELECT COUNT(*) FROM saldos_caixa')
     if cursor.fetchone()[0] == 0:
-        cursor.execute('INSERT INTO saldos_caixa (saldo_principal, saldo_matriculas, saldo_avulsas) VALUES (0.0, 0.0, 0.0)')
+        cursor.execute('INSERT INTO saldos_caixa (saldo_principal, saldo_matriculas, saldo_avulsas, saldo_reserva) VALUES (0.0, 0.0, 0.0, 0.0)')
 
     conexao.commit()
     conexao.close()
