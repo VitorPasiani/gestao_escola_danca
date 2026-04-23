@@ -19,6 +19,7 @@
                 </div>
 
                 <input type="hidden" id="cronograma_json" name="cronograma_json">
+                <input type="hidden" id="dados_cronograma_antigo" value="{{ valores_antigos.get('cronograma', '') }}">
 
                 <div class="row">
                     <div class="col-md-6 mb-3">
@@ -45,9 +46,9 @@
                     <div class="col-md-3 mb-3">
                         <label for="sala" class="form-label">Sala Fixa</label>
                         <select class="form-select" id="sala" name="sala">
-                            <option value="" disabled selected>Selecione...</option>
-                            <option value="Sala Pequena">Sala Pequena</option>
-                            <option value="Sala Grande">Sala Grande</option>
+                            <option value="" disabled {% if not valores_antigos.get('sala') %}selected{% endif %}>Selecione...</option>
+                            <option value="Sala Pequena" {% if valores_antigos.get('sala') == 'Sala Pequena' %}selected{% endif %}>Sala Pequena</option>
+                            <option value="Sala Grande" {% if valores_antigos.get('sala') == 'Sala Grande' %}selected{% endif %}>Sala Grande</option>
                         </select>
                     </div>
                     <div class="col-md-5 mb-3">
@@ -55,18 +56,19 @@
                         {% set dias = [('Segunda', 'Seg'), ('Terça', 'Ter'), ('Quarta', 'Qua'), ('Quinta', 'Qui'), ('Sexta', 'Sex'), ('Sábado', 'Sáb')] %}
                         {% for valor, label in dias %}
                             <div class="form-check form-check-inline">
-                                <input class="form-check-input" type="checkbox" id="{{ valor|lower }}" name="dias_semana" value="{{ valor }}">
+                                <input class="form-check-input" type="checkbox" id="{{ valor|lower }}" name="dias_semana" value="{{ valor }}"
+                                {% if valor in valores_antigos.get('dias_semana', []) %}checked{% endif %}>
                                 <label class="form-check-label" for="{{ valor|lower }}">{{ label }}</label>
                             </div>
                         {% endfor %}
                     </div>
                     <div class="col-md-2 mb-3">
                         <label for="hora_inicio" class="form-label">Início</label>
-                        <input type="time" class="form-control" id="hora_inicio" name="hora_inicio">
+                        <input type="time" class="form-control" id="hora_inicio" name="hora_inicio" value="{{ valores_antigos.get('hora_inicio', '') }}">
                     </div>
                     <div class="col-md-2 mb-3">
                         <label for="hora_fim" class="form-label">Término</label>
-                        <input type="time" class="form-control" id="hora_fim" name="hora_fim">
+                        <input type="time" class="form-control" id="hora_fim" name="hora_fim" value="{{ valores_antigos.get('hora_fim', '') }}">
                     </div>
                 </div>
 
@@ -91,8 +93,8 @@
                     <div class="col-md-6 mb-3" id="caixa_gestao">
                         <label for="tipo_gestao" class="form-label">Tipo de Gestão (Repasse)</label>
                         <select class="form-select" id="tipo_gestao" name="tipo_gestao">
-                            <option value="Propria">Turma ATO</option>
-                            <option value="Parceiro">Turma Professor ATO</option>
+                            <option value="Propria" {% if valores_antigos.get('tipo_gestao') == 'Propria' %}selected{% endif %}>Turma ATO</option>
+                            <option value="Parceiro" {% if valores_antigos.get('tipo_gestao') == 'Parceiro' %}selected{% endif %}>Turma Professor ATO</option>
                         </select>
                     </div>
                 </div>
@@ -184,13 +186,16 @@
                     if(switchParticular.checked) {
                         switchParticular.dispatchEvent(new Event('change'));
                         
-                        {% if valores_antigos.get('cronograma') %}
-                            const gradeSalva = {{ valores_antigos.get('cronograma') | safe }};
+                        const cronogramaBruto = document.getElementById('dados_cronograma_antigo').value;
+                        
+                        if (cronogramaBruto) {
+                            const gradeSalva = JSON.parse(cronogramaBruto);
                             document.getElementById('lista_grade').innerHTML = '';
+                            
                             gradeSalva.forEach(aula => {
                                 adicionarLinhaGradeComDados(aula.dia, aula.sala, aula.inicio, aula.fim);
                             });
-                        {% endif %}
+                        }
                     }
                 });
 

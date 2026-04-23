@@ -1,3 +1,4 @@
+from datetime import datetime
 from flask import Flask, render_template, request, redirect, flash, jsonify
 from operacoes import (
     cadastrar_aluno,  
@@ -48,7 +49,13 @@ from operacoes import (
     consultar_saldos,
     registrar_saque,
     listar_historico_saques,
-    quitar_taxa_matricula
+    quitar_taxa_matricula,
+    cadastrar_despesa,
+    clonar_despesas_mes_anterior,
+    listar_despesas,
+    quitar_despesa,
+    excluir_despesa,
+    atualizar_despesa
 )
 
 import sqlite3
@@ -294,16 +301,26 @@ def rota_editar_professor(id_professor):
 def rota_cadastrar_turma():
     if request.method == 'POST':
         is_particular = request.form.get('is_particular') == '1'
+        dias_semana_lista = request.form.getlist('dias_semana') if not is_particular else []
+        sala = request.form.get('sala') if not is_particular else "Dinâmica"
+        hora_inicio = request.form.get('hora_inicio') if not is_particular else ""
+        hora_fim = request.form.get('hora_fim') if not is_particular else ""
+
+        if not is_particular and sala != "Dinâmica":
+            erro_conflito = verificar_conflito_sala(sala, dias_semana_lista, hora_inicio, hora_fim)
+            if erro_conflito:
+                flash(erro_conflito, "danger")
+                return redirect('/cadastrar_turma')
         
         dados = {
             'nome_turma': request.form.get('nome_turma'),
             'id_professor': request.form.get('id_professor'),
-            'sala': request.form.get('sala') if not is_particular else "Dinâmica",
-            'hora_inicio': request.form.get('hora_inicio') if not is_particular else "",
-            'hora_fim': request.form.get('hora_fim') if not is_particular else "",
+            'sala': sala,
+            'hora_inicio': hora_inicio,
+            'hora_fim': hora_fim,
             'valor_base': request.form.get('valor_mensal_base'),
             'tipo_gestao': request.form.get('tipo_gestao') if not is_particular else "Parceiro",
-            'dias_semana': request.form.getlist('dias_semana') if not is_particular else [],
+            'dias_semana': dias_semana_lista,
             'cronograma': request.form.get('cronograma_json') if is_particular else None
         }
 
@@ -347,12 +364,24 @@ def rota_editar_turma(id_turma):
     if request.method == 'POST':
         is_particular = request.form.get('is_particular') == '1'
         
+        sala = request.form.get('sala') if not is_particular else "Dinâmica"
+        dias_semana_lista = request.form.getlist('dias_semana') if not is_particular else []
+        hora_inicio = request.form.get('hora_inicio') if not is_particular else ""
+        hora_fim = request.form.get('hora_fim') if not is_particular else ""
+        
+        if not is_particular and sala != "Dinâmica":
+            erro_conflito = verificar_conflito_sala(sala, dias_semana_lista, hora_inicio, hora_fim, id_turma_ignorada=id_turma)
+            
+            if erro_conflito:
+                flash(erro_conflito, "danger")
+                return redirect(f'/editar_turma/{id_turma}')
+
         dados_novos = {
             'nome_turma': request.form.get('nome_turma'),
             'id_professor': request.form.get('id_professor'),
-            'sala': request.form.get('sala') if not is_particular else "Dinâmica",
-            'hora_inicio': request.form.get('hora_inicio') if not is_particular else "",
-            'hora_fim': request.form.get('hora_fim') if not is_particular else "",
+            'sala': sala,
+            'hora_inicio': hora_inicio,
+            'hora_fim': hora_fim,
             'tipo_gestao': request.form.get('tipo_gestao') if not is_particular else "Parceiro",
             'is_particular': is_particular,
             'cronograma': request.form.get('cronograma_json') if is_particular else None,
@@ -360,7 +389,6 @@ def rota_editar_turma(id_turma):
             'valor_por_aula': request.form.get('valor_mensal_base') if is_particular else None 
         }
 
-        dias_semana_lista = request.form.getlist('dias_semana') if not is_particular else []
         dados_novos['dias_semana'] = ", ".join(dias_semana_lista) if not is_particular else None
 
         mensagem = atualizar_turma(id_turma, **dados_novos)
@@ -631,6 +659,60 @@ def rota_gestao_caixas():
     historico = listar_historico_saques()
     
     return render_template('gestao_caixas.html', saldos=saldos_atuais, historico=historico)
+
+### DESPESAS FIXAS E VARIÁVEIS ###
+@app.route('/despesas', methods=['GET', 'POST'])
+def pagina_despesas():
+    if request.method == 'POST':
+        descricao = request.form.get('descricao')
+        tipo = request.form.get('tipo_despesa')
+        valor = float(request.form.get('valor') or 0.0)
+        vencimento = request.form.get('data_vencimento')
+        mes_ref = request.form.get('mes_referencia')
+
+        mensagem = cadastrar_despesa(descricao, tipo, valor, vencimento, mes_ref)
+        flash(mensagem, 'success')
+        return redirect(f'/despesas?mes={mes_ref}')
+
+    mes_atual = request.args.get('mes')
+    if not mes_atual:
+        mes_atual = datetime.now().strftime("%m/%Y")
+
+    lista = listar_despesas(mes_atual)
+    return render_template('gestao_despesas.html', lista_despesas=lista, mes_atual=mes_atual)
+
+@app.route('/clonar_despesas', methods=['POST'])
+def rota_clonar_despesas():
+    mes_novo = request.form.get('mes_novo')
+    mes_anterior = request.form.get('mes_anterior')
+    
+    mensagem = clonar_despesas_mes_anterior(mes_novo, mes_anterior)
+    flash(mensagem, 'info')
+    return redirect(f'/despesas?mes={mes_novo}')
+
+@app.route('/quitar_despesa/<int:id_despesa>')
+def rota_quitar_despesa(id_despesa):
+    mensagem = quitar_despesa(id_despesa)
+    flash(mensagem, 'success')
+    return redirect(request.referrer or '/despesas')
+
+@app.route('/editar_despesa/<int:id_despesa>', methods=['POST'])
+def rota_editar_despesa(id_despesa):
+    descricao = request.form.get('descricao')
+    tipo = request.form.get('tipo_despesa')
+    valor = float(request.form.get('valor') or 0.0)
+    vencimento = request.form.get('data_vencimento')
+    mes_ref = request.form.get('mes_referencia')
+
+    mensagem = atualizar_despesa(id_despesa, descricao, tipo, valor, vencimento, mes_ref)
+    flash(mensagem, 'success')
+    return redirect(request.referrer or f'/despesas?mes={mes_ref}')
+
+@app.route('/excluir_despesa/<int:id_despesa>')
+def rota_excluir_despesa(id_despesa):
+    mensagem = excluir_despesa(id_despesa)
+    flash(mensagem, 'warning')
+    return redirect(request.referrer or '/despesas')
 
 ## MAIN ##
 if __name__ == '__main__':

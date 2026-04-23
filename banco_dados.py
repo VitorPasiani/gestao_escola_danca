@@ -173,13 +173,27 @@ def inicializar_banco():
             saldo_principal REAL DEFAULT 0.0,
             saldo_matriculas REAL DEFAULT 0.0,
             saldo_avulsas REAL DEFAULT 0.0,
-            saldo_reserva REAL DEFAULT 0.0 -- O 4º CAIXA DE SEGURANÇA
+            saldo_reserva REAL DEFAULT 0.0
         )
     ''')
 
     cursor.execute('SELECT COUNT(*) FROM saldos_caixa')
     if cursor.fetchone()[0] == 0:
         cursor.execute('INSERT INTO saldos_caixa (saldo_principal, saldo_matriculas, saldo_avulsas, saldo_reserva) VALUES (0.0, 0.0, 0.0, 0.0)')
+
+# TABELA DESPESAS (Fixas e Variáveis)
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS despesas (
+            id_despesa INTEGER PRIMARY KEY AUTOINCREMENT,
+            descricao TEXT NOT NULL,
+            tipo_despesa TEXT NOT NULL, -- 'Fixa' ou 'Variável'
+            valor REAL DEFAULT 0.0,
+            data_vencimento TEXT,
+            mes_referencia TEXT NOT NULL, -- Formato MM/AAAA
+            status_pagamento TEXT DEFAULT 'Pendente', -- 'Pendente' ou 'Pago'
+            ativo INTEGER DEFAULT 1
+        )
+    ''')
 
     conexao.commit()
     conexao.close()

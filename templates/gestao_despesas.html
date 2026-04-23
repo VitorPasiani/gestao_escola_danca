@@ -1,0 +1,185 @@
+{% extends 'base.html' %}
+
+{% block titulo %}Gestão de Despesas - ATO Espaço de Dança{% endblock %}
+
+{% block conteudo %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="mb-0">Contas a Pagar: <span class="text-primary">{{ mes_atual }}</span></h2>
+        <small class="text-muted">Gerencie aqui os custos fixos e variáveis da escola.</small>
+    </div>
+    <div class="d-flex gap-2">
+        <button type="button" class="btn btn-outline-primary shadow-sm" data-bs-toggle="modal" data-bs-target="#modalClonar">
+            🔄 Importar Mês Anterior
+        </button>
+        <button type="button" class="btn badge-ato shadow-sm" data-bs-toggle="modal" data-bs-target="#modalNovaDespesa">
+            + Nova Despesa
+        </button>
+    </div>
+</div>
+
+<div class="card shadow-sm border-0 mb-4" style="border-radius: 12px;">
+    <div class="card-body">
+        <table class="table table-hover tabela-datatable">
+            <thead>
+                <tr>
+                    <th>Vencimento</th>
+                    <th>Descrição</th>
+                    <th>Tipo</th>
+                    <th>Valor (R$)</th>
+                    <th>Status</th>
+                    <th class="text-center">Ações</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in lista_despesas %}
+                <tr class="{{ 'table-light text-muted' if item.status_pagamento == 'Pago' else '' }}">
+                    <td>{{ item.data_vencimento or '-' }}</td>
+                    <td class="fw-bold">{{ item.descricao }}</td>
+                    <td>
+                        {% if item.tipo_despesa == 'Fixa' %}
+                            <span class="badge bg-secondary" style="font-size: 0.7rem;">FIXA</span>
+                        {% else %}
+                            <span class="badge bg-info text-dark" style="font-size: 0.7rem;">VARIÁVEL</span>
+                        {% endif %}
+                    </td>
+                    <td class="{{ 'text-success fw-bold' if item.status_pagamento == 'Pago' else 'text-danger' }}">
+                        R$ {{ "%.2f"|format(item.valor) }}
+                    </td>
+                    <td>
+                        {% if item.status_pagamento == 'Pago' %}
+                            <span class="badge bg-success">✅ Pago</span>
+                        {% else %}
+                            <span class="badge bg-warning text-dark">⏳ Pendente</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-center">
+                        {% if item.status_pagamento == 'Pendente' %}
+                            <a href="/quitar_despesa/{{ item.id_despesa }}" class="btn btn-sm btn-outline-success" onclick="return confirm('Confirmar pagamento desta conta?')">💲 Baixar</a>
+                        {% endif %}
+                        <button type="button" class="btn btn-sm btn-outline-warning" data-bs-toggle="modal" data-bs-target="#modalEditar{{ item.id_despesa }}">✏️</button>
+                        <a href="/excluir_despesa/{{ item.id_despesa }}" class="btn btn-sm btn-outline-danger" onclick="return confirm('Deseja remover este registro?')">🗑️</a>
+                    </td>
+                </tr>
+
+                <div class="modal fade" id="modalEditar{{ item.id_despesa }}" tabindex="-1">
+                    <div class="modal-dialog">
+                        <div class="modal-content text-start">
+                            <div class="modal-header card-header-ato text-white">
+                                <h5 class="modal-title">Editar Despesa</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                            </div>
+                            <form action="/editar_despesa/{{ item.id_despesa }}" method="POST" autocomplete="off">
+                                <div class="modal-body">
+                                    <div class="mb-3">
+                                        <label class="form-label fw-bold">Descrição*</label>
+                                        <input type="text" name="descricao" class="form-control" value="{{ item.descricao }}" required>
+                                    </div>
+                                    <div class="row">
+                                        <div class="col-md-6 mb-3">
+                                            <label class="form-label fw-bold">Tipo*</label>
+                                            <select name="tipo_despesa" class="form-select" required>
+                                                <option value="Fixa" {% if item.tipo_despesa == 'Fixa' %}selected{% endif %}>Fixa</option>
+                                                <option value="Variável" {% if item.tipo_despesa == 'Variável' %}selected{% endif %}>Variável</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-md-6 mb-3">
+                                            <label class="form-label fw-bold">Valor (R$)</label>
+                                            <input type="number" step="0.01" name="valor" class="form-control" value="{{ item.valor }}">
+                                        </div>
+                                    </div>
+                                    <div class="row">
+                                        <div class="col-md-6 mb-3">
+                                            <label class="form-label fw-bold">Vencimento</label>
+                                            <input type="date" name="data_vencimento" class="form-control" value="{{ item.data_vencimento }}">
+                                        </div>
+                                        <div class="col-md-6 mb-3">
+                                            <label class="form-label fw-bold">Mês de Ref.*</label>
+                                            <input type="text" name="mes_referencia" class="form-control" value="{{ mes_atual }}" required>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="modal-footer">
+                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                                    <button type="submit" class="btn badge-ato" onclick="if(this.form.checkValidity()){ this.disabled=true; this.form.submit(); } else { this.form.reportValidity(); }">Salvar Alterações</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="modal fade" id="modalNovaDespesa" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header card-header-ato text-white">
+                <h5 class="modal-title">Nova Despesa</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <form action="/despesas" method="POST" autocomplete="off">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Descrição*</label>
+                        <input type="text" name="descricao" class="form-control" placeholder="Ex: Aluguel, Luz, Internet..." required>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold">Tipo*</label>
+                            <select name="tipo_despesa" class="form-select" required>
+                                <option value="Fixa">Fixa</option>
+                                <option value="Variável">Variável</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold">Valor (R$)</label>
+                            <input type="number" step="0.01" name="valor" class="form-control" placeholder="0.00">
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold">Vencimento</label>
+                            <input type="date" name="data_vencimento" class="form-control">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold">Mês de Ref.*</label>
+                            <input type="text" name="mes_referencia" class="form-control" value="{{ mes_atual }}" required>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn badge-ato" onclick="if(this.form.checkValidity()){ this.disabled=true; this.form.submit(); } else { this.form.reportValidity(); }">Salvar Registro</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="modalClonar" tabindex="-1">
+    <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title">Clonar Despesas</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <form action="/clonar_despesas" method="POST">
+                <div class="modal-body">
+                    <p class="small text-muted">Isso copiará as descrições do mês anterior para o mês atual.</p>
+                    <label class="form-label fw-bold">Mês Destino:</label>
+                    <input type="text" name="mes_novo" class="form-control mb-3" value="{{ mes_atual }}" readonly>
+                    
+                    <label class="form-label fw-bold">Copiar de (MM/AAAA):</label>
+                    <input type="text" name="mes_anterior" class="form-control" placeholder="Ex: 03/2026" required>
+                </div>
+                <div class="modal-footer">
+                    <button type="submit" class="btn btn-primary w-100" onclick="this.disabled=true; this.form.submit();">Confirmar Importação</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

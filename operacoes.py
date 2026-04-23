@@ -122,8 +122,7 @@ def atualizar_aluno(id_aluno, **kwargs):
 
 def listar_alunos():
     conexao, cursor = conectar_banco()
-
-    cursor.execute('SELECT id_aluno, nome, contato_1, contato_2, responsavel FROM alunos WHERE ativo = 1 ORDER BY nome ASC')
+    cursor.execute('SELECT id_aluno, nome, cpf, data_nascimento, contato_1, contato_2, responsavel FROM alunos WHERE ativo = 1 ORDER BY nome ASC')
     alunos_banco = cursor.fetchall()
     conexao.close()
 
@@ -132,17 +131,17 @@ def listar_alunos():
         lista_alunos.append({
             "id_aluno": a[0],
             "nome": a[1],
-            "contato_1": formatar_telefone(a[2]),
-            "contato_2": formatar_telefone(a[3]),
-            "responsavel": a[4] if a[4] else "-"
+            "cpf": a[2],
+            "data_nascimento": a[3],
+            "contato_1": formatar_telefone(a[4]),
+            "contato_2": formatar_telefone(a[5]),
+            "responsavel": a[6] if a[6] else "-"
         })
-            
     return lista_alunos
 
 def listar_alunos_inativos():
     conexao, cursor = conectar_banco()
-
-    cursor.execute('SELECT id_aluno, nome, contato_1, contato_2, responsavel, motivo_inativacao FROM alunos WHERE ativo = 0 ORDER BY nome ASC')
+    cursor.execute('SELECT id_aluno, nome, cpf, data_nascimento, contato_1, contato_2, responsavel, motivo_inativacao FROM alunos WHERE ativo = 0 ORDER BY nome ASC')
     alunos_banco = cursor.fetchall()
     conexao.close()
 
@@ -151,14 +150,14 @@ def listar_alunos_inativos():
         lista_inativos.append({
             "id_aluno": a[0],
             "nome": a[1],
-            "contato_1": formatar_telefone(a[2]),
-            "contato_2": formatar_telefone(a[3]),
-            "responsavel": a[4] if a[4] else "-",
-            "motivo_inativacao": a[5] if a[5] else "Decisão do Aluno"
+            "cpf": a[2],
+            "data_nascimento": a[3],
+            "contato_1": formatar_telefone(a[4]),
+            "contato_2": formatar_telefone(a[5]),
+            "responsavel": a[6] if a[6] else "-",
+            "motivo_inativacao": a[7] if a[7] else "Decisão do Aluno"
         })
-            
     return lista_inativos
-
 
 def inativar_aluno(id_aluno, motivo="Decisão do Aluno"):
     conexao, cursor = conectar_banco()
@@ -1241,3 +1240,85 @@ def listar_historico_saques():
             "data": r[3]
         })
     return historico
+
+def cadastrar_despesa(descricao, tipo, valor, vencimento, mes_ref):
+    conexao, cursor = conectar_banco()
+    sql = '''
+        INSERT INTO despesas (descricao, tipo_despesa, valor, data_vencimento, mes_referencia)
+        VALUES (?, ?, ?, ?, ?)
+    '''
+    cursor.execute(sql, (descricao, tipo, valor, vencimento, mes_ref))
+    conexao.commit()
+    conexao.close()
+    return "Despesa registrada com sucesso!"
+
+def clonar_despesas_mes_anterior(mes_novo, mes_anterior):
+    conexao, cursor = conectar_banco()
+    
+    cursor.execute('SELECT descricao, tipo_despesa, valor FROM despesas WHERE mes_referencia = ? AND ativo = 1', (mes_anterior,))
+    itens_anteriores = cursor.fetchall()
+    
+    contador = 0
+    for desc, tipo, valor in itens_anteriores:
+        valor_final = valor if tipo == 'Fixa' else 0.0
+        
+        sql = '''
+            INSERT INTO despesas (descricao, tipo_despesa, valor, mes_referencia, status_pagamento)
+            VALUES (?, ?, ?, ?, 'Pendente')
+        '''
+        cursor.execute(sql, (desc, tipo, valor_final, mes_novo))
+        contador += 1
+        
+    conexao.commit()
+    conexao.close()
+    return f"Sucesso! {contador} despesas foram importadas do mês anterior."
+
+def listar_despesas(mes_referencia):
+    conexao, cursor = conectar_banco()
+    sql = '''
+        SELECT id_despesa, descricao, tipo_despesa, valor, data_vencimento, status_pagamento
+        FROM despesas
+        WHERE mes_referencia = ? AND ativo = 1
+        ORDER BY status_pagamento DESC, data_vencimento ASC
+    '''
+    cursor.execute(sql, (mes_referencia,))
+    resultados = cursor.fetchall()
+    conexao.close()
+
+    lista = []
+    for r in resultados:
+        lista.append({
+            "id_despesa": r[0],
+            "descricao": r[1],
+            "tipo_despesa": r[2],
+            "valor": r[3],
+            "data_vencimento": r[4],
+            "status_pagamento": r[5]
+        })
+    return lista
+
+def quitar_despesa(id_despesa):
+    conexao, cursor = conectar_banco()
+    cursor.execute("UPDATE despesas SET status_pagamento = 'Pago' WHERE id_despesa = ?", (id_despesa,))
+    conexao.commit()
+    conexao.close()
+    return "Despesa baixada com sucesso! O valor foi debitado."
+
+def atualizar_despesa(id_despesa, descricao, tipo_despesa, valor, data_vencimento, mes_referencia):
+    conexao, cursor = conectar_banco()
+    sql = '''
+        UPDATE despesas 
+        SET descricao = ?, tipo_despesa = ?, valor = ?, data_vencimento = ?, mes_referencia = ?
+        WHERE id_despesa = ?
+    '''
+    cursor.execute(sql, (descricao, tipo_despesa, valor, data_vencimento, mes_referencia, id_despesa))
+    conexao.commit()
+    conexao.close()
+    return "Despesa atualizada com sucesso!"
+
+def excluir_despesa(id_despesa):
+    conexao, cursor = conectar_banco()
+    cursor.execute("UPDATE despesas SET ativo = 0 WHERE id_despesa = ?", (id_despesa,))
+    conexao.commit()
+    conexao.close()
+    return "Despesa excluída do painel!"
