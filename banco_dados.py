@@ -95,10 +95,11 @@ def inicializar_banco():
     )
 ''')
 
-    # TABELA PAGAMENTOS
+# TABELA PAGAMENTOS
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS pagamentos (
             id_pagamento INTEGER PRIMARY KEY AUTOINCREMENT,
+            id_fatura INTEGER,
             id_aluno INTEGER,
             id_turma INTEGER,
             id_plano INTEGER,
@@ -111,6 +112,7 @@ def inicializar_banco():
             status TEXT,
             data_pagamento TEXT,
                 
+            FOREIGN KEY (id_fatura) REFERENCES faturas (id_fatura),
             FOREIGN KEY (id_aluno) REFERENCES alunos (id_aluno),
             FOREIGN KEY (id_turma) REFERENCES turmas (id_turma),
             FOREIGN KEY (id_plano) REFERENCES planos (id_plano)
@@ -180,6 +182,25 @@ def inicializar_banco():
     cursor.execute('SELECT COUNT(*) FROM saldos_caixa')
     if cursor.fetchone()[0] == 0:
         cursor.execute('INSERT INTO saldos_caixa (saldo_principal, saldo_matriculas, saldo_avulsas, saldo_reserva) VALUES (0.0, 0.0, 0.0, 0.0)')
+
+# TABELA FATURAS
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS faturas (
+            id_fatura INTEGER PRIMARY KEY AUTOINCREMENT,
+            id_aluno INTEGER NOT NULL,
+            mes_referencia TEXT NOT NULL,
+            data_vencimento TEXT NOT NULL,
+            valor_bruto REAL DEFAULT 0.0,
+            desconto_aplicado REAL DEFAULT 0.0,
+            valor_final REAL DEFAULT 0.0,
+            taxa_maquininha REAL DEFAULT 0.0,
+            status TEXT DEFAULT 'Pendente', -- 'Pendente', 'Pago', 'Vencido', 'Cancelado'
+            data_pagamento TEXT,
+            ativo INTEGER DEFAULT 1,
+            
+            FOREIGN KEY (id_aluno) REFERENCES alunos (id_aluno)
+        )
+    ''')
 
 # TABELA DESPESAS (Fixas e Variáveis)
     cursor.execute('''

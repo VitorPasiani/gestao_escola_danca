@@ -55,7 +55,10 @@ from operacoes import (
     listar_despesas,
     quitar_despesa,
     excluir_despesa,
-    atualizar_despesa
+    atualizar_despesa,
+    listar_faturas,
+    buscar_itens_fatura,
+    processar_fechamento_mensal
 )
 
 import sqlite3
@@ -643,6 +646,29 @@ def rota_dre_mensal():
         
     return render_template('dre_mensal.html', relatorio=relatorio)
 
+### MENSALIDADES / FATURAS UNIFICADAS ###
+@app.route('/faturas')
+def pagina_listar_faturas():
+    mes_atual = request.args.get('mes')
+    if not mes_atual:
+        mes_atual = datetime.now().strftime("%m/%Y")
+        
+    lista = listar_faturas(mes_atual)
+    
+    return render_template('listar_faturas.html', lista_faturas=lista, mes_atual=mes_atual)
+
+@app.route('/gerar_faturas', methods=['POST'])
+def rota_gerar_faturas():
+    mes_referencia = request.form.get('mes_referencia')
+    
+    try:
+        mensagem = processar_fechamento_mensal(mes_referencia)
+        flash(mensagem, 'success')
+    except Exception as e:
+        flash(f"Erro ao gerar faturas: {str(e)}", 'danger')
+        
+    return redirect(f'/faturas?mes={mes_referencia}')
+
 ##### FINANCEIRO - SAQUES E SALDOS #####
 @app.route('/gestao_caixas', methods=['GET', 'POST'])
 def rota_gestao_caixas():
@@ -692,8 +718,9 @@ def rota_clonar_despesas():
 
 @app.route('/quitar_despesa/<int:id_despesa>')
 def rota_quitar_despesa(id_despesa):
-    mensagem = quitar_despesa(id_despesa)
-    flash(mensagem, 'success')
+    mensagem, categoria = quitar_despesa(id_despesa)
+    
+    flash(mensagem, categoria)
     return redirect(request.referrer or '/despesas')
 
 @app.route('/editar_despesa/<int:id_despesa>', methods=['POST'])

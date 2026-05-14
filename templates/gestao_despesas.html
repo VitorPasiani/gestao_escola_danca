@@ -31,6 +31,7 @@
                     <th class="text-center">Ações</th>
                 </tr>
             </thead>
+            
             <tbody>
                 {% for item in lista_despesas %}
                 <tr class="{{ 'table-light text-muted' if item.status_pagamento == 'Pago' else '' }}">
@@ -49,65 +50,73 @@
                     <td>
                         {% if item.status_pagamento == 'Pago' %}
                             <span class="badge bg-success">✅ Pago</span>
+                        {% elif item.status_pagamento == 'Vencido' %}
+                            <span class="badge bg-danger">🚨 Vencido</span>
                         {% else %}
                             <span class="badge bg-warning text-dark">⏳ Pendente</span>
                         {% endif %}
                     </td>
                     <td class="text-center">
-                        {% if item.status_pagamento == 'Pendente' %}
+                        {% if item.status_pagamento in ['Pendente', 'Vencido'] %}
                             <a href="/quitar_despesa/{{ item.id_despesa }}" class="btn btn-sm btn-outline-success" onclick="return confirm('Confirmar pagamento desta conta?')">💲 Baixar</a>
                         {% endif %}
                         <button type="button" class="btn btn-sm btn-outline-warning" data-bs-toggle="modal" data-bs-target="#modalEditar{{ item.id_despesa }}">✏️</button>
                         <a href="/excluir_despesa/{{ item.id_despesa }}" class="btn btn-sm btn-outline-danger" onclick="return confirm('Deseja remover este registro?')">🗑️</a>
                     </td>
                 </tr>
+                {% endfor %}
+            </tbody>
+        </table> </div>
+</div>
 
-                <div class="modal fade" id="modalEditar{{ item.id_despesa }}" tabindex="-1">
-                    <div class="modal-dialog">
-                        <div class="modal-content text-start">
-                            <div class="modal-header card-header-ato text-white">
-                                <h5 class="modal-title">Editar Despesa</h5>
-                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                            </div>
-                            <form action="/editar_despesa/{{ item.id_despesa }}" method="POST" autocomplete="off">
-                                <div class="modal-body">
-                                    <div class="mb-3">
-                                        <label class="form-label fw-bold">Descrição*</label>
-                                        <input type="text" name="descricao" class="form-control" value="{{ item.descricao }}" required>
-                                    </div>
-                                    <div class="row">
-                                        <div class="col-md-6 mb-3">
-                                            <label class="form-label fw-bold">Tipo*</label>
-                                            <select name="tipo_despesa" class="form-select" required>
-                                                <option value="Fixa" {% if item.tipo_despesa == 'Fixa' %}selected{% endif %}>Fixa</option>
-                                                <option value="Variável" {% if item.tipo_despesa == 'Variável' %}selected{% endif %}>Variável</option>
-                                            </select>
-                                        </div>
-                                        <div class="col-md-6 mb-3">
-                                            <label class="form-label fw-bold">Valor (R$)</label>
-                                            <input type="number" step="0.01" name="valor" class="form-control" value="{{ item.valor }}">
-                                        </div>
-                                    </div>
-                                    <div class="row">
-                                        <div class="col-md-6 mb-3">
-                                            <label class="form-label fw-bold">Vencimento</label>
-                                            <input type="date" name="data_vencimento" class="form-control" value="{{ item.data_vencimento }}">
-                                        </div>
-                                        <div class="col-md-6 mb-3">
-                                            <label class="form-label fw-bold">Mês de Ref.*</label>
-                                            <input type="text" name="mes_referencia" class="form-control" value="{{ mes_atual }}" required>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="modal-footer">
-                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                                    <button type="submit" class="btn badge-ato" onclick="if(this.form.checkValidity()){ this.disabled=true; this.form.submit(); } else { this.form.reportValidity(); }">Salvar Alterações</button>
-                                </div>
-                            </form>
+{% for item in lista_despesas %}
+<div class="modal fade" id="modalEditar{{ item.id_despesa }}" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content text-start">
+            <div class="modal-header card-header-ato text-white">
+                <h5 class="modal-title">Editar Despesa</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            
+            <form action="/editar_despesa/{{ item.id_despesa }}" method="POST" autocomplete="off">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Descrição*</label>
+                        <input type="text" name="descricao" class="form-control" value="{{ item.descricao }}" required>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold">Tipo*</label>
+                            <select name="tipo_despesa" class="form-select" required>
+                                <option value="Fixa" {% if item.tipo_despesa == 'Fixa' %}selected{% endif %}>Fixa</option>
+                                <option value="Variável" {% if item.tipo_despesa == 'Variável' %}selected{% endif %}>Variável</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold">Valor (R$)</label>
+                            <input type="number" step="0.01" name="valor" class="form-control" value="{{ item.valor }}">
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold">Vencimento</label>
+                            <input type="date" name="data_vencimento" class="form-control" value="{{ item.data_vencimento }}">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold">Mês de Ref.*</label>
+                            <input type="text" name="mes_referencia" class="form-control" value="{{ mes_atual }}" required>
                         </div>
                     </div>
                 </div>
-                {% endfor %}
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn badge-ato" onclick="if(this.form.checkValidity()){ this.disabled=true; this.form.submit(); } else { this.form.reportValidity(); }">Salvar Alterações</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endfor %}
             </tbody>
         </table>
     </div>

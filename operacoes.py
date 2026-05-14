@@ -973,42 +973,89 @@ def atualizar_pagamento(id_pagamento, **kwargs):
 
     return "Pagamento atualizado com sucesso!"
 
-def listar_pagamentos():
+def listar_faturas(mes_referencia):
+
     conexao, cursor = conectar_banco()
 
     sql = '''
         SELECT 
-            pagamentos.id_pagamento,
-            alunos.nome,
-            turmas.nome_turma,
-            planos.nome_plano,
-            pagamentos.data_vencimento,
-            pagamentos.valor_final,
-            pagamentos.status,
-            pagamentos.data_pagamento
-        FROM pagamentos
-        JOIN alunos ON pagamentos.id_aluno = alunos.id_aluno
-        JOIN turmas ON pagamentos.id_turma = turmas.id_turma
-        LEFT JOIN planos ON pagamentos.id_plano = planos.id_plano
+            f.id_fatura,
+            a.nome AS nome_aluno,
+            f.mes_referencia,
+            f.data_vencimento,
+            f.valor_bruto,
+            f.desconto_aplicado,
+            f.valor_final,
+            f.status
+        FROM faturas f
+        JOIN alunos a ON f.id_aluno = a.id_aluno
+        WHERE f.ativo = 1 AND f.mes_referencia = ?
+        ORDER BY f.data_vencimento ASC
     '''
-    cursor.execute(sql)
-    pagamentos_banco = cursor.fetchall()
+    cursor.execute(sql, (mes_referencia,))
+    faturas_banco = cursor.fetchall()
     conexao.close()
 
-    lista_pagamentos = []
-    for pag in pagamentos_banco:
-        lista_pagamentos.append({
-            "id_pagamento": pag[0],
-            "nome_aluno": pag[1],
-            "nome_turma": pag[2],
-            "nome_plano": pag[3] if pag[3] else "Sem Plano",
-            "data_vencimento": pag[4],
-            "valor_final": pag[5],
-            "status": pag[6],
-            "data_pagamento": pag[7] if pag[7] else ""
+    lista_faturas = []
+    hoje = datetime.now().date()
+
+    for f in faturas_banco:
+        id_fatura, nome_aluno, mes_ref, data_venc_str, bruto, desconto, final, status_bd = f
+        
+        data_formatada = "-"
+        status_visual = status_bd
+
+        if data_venc_str:
+            try:
+                data_obj = datetime.strptime(data_venc_str, "%d/%m/%Y").date()
+                data_formatada = data_venc_str
+                
+                if status_bd not in ['Pago', 'Cancelado'] and hoje > data_obj:
+                    status_visual = 'Vencido'
+            except ValueError:
+                data_formatada = data_venc_str
+
+        lista_faturas.append({
+            "id_fatura": id_fatura,
+            "nome_aluno": nome_aluno,
+            "mes_referencia": mes_ref,
+            "data_vencimento": data_formatada,
+            "valor_bruto": bruto,
+            "desconto_aplicado": desconto,
+            "valor_final": final,
+            "status": status_visual
         })
             
-    return lista_pagamentos
+    return lista_faturas
+
+
+def buscar_itens_fatura(id_fatura):
+    conexao, cursor = conectar_banco()
+    sql = '''
+        SELECT 
+            p.id_pagamento,
+            t.nome_turma,
+            pl.nome_plano,
+            p.valor_final
+        FROM pagamentos p
+        JOIN turmas t ON p.id_turma = t.id_turma
+        LEFT JOIN planos pl ON p.id_plano = pl.id_plano
+        WHERE p.id_fatura = ?
+    '''
+    cursor.execute(sql, (id_fatura,))
+    itens_banco = cursor.fetchall()
+    conexao.close()
+
+    lista_itens = []
+    for i in itens_banco:
+        lista_itens.append({
+            "id_pagamento": i[0],
+            "nome_turma": i[1],
+            "nome_plano": i[2] if i[2] else "Avulso/Sem Plano",
+            "valor": i[3]
+        })
+        
+    return lista_itens
 
 def deletar_pagamento(id_pagamento):
     conexao, cursor = conectar_banco()
@@ -1021,42 +1068,113 @@ def deletar_pagamento(id_pagamento):
     return "Registro de pagamento excluído!"
 
 def processar_fechamento_mensal(mes_referencia):
-
     conexao, cursor = conectar_banco()
     
-    sql = '''
-        SELECT 
-            i.id_aluno, 
-            i.id_turma, 
-            SUM(f.valor_aula_momento) as total_devido,
-            COUNT(f.id_frequencia) as qtd_aulas,
-            GROUP_CONCAT(f.id_frequencia) as ids_frequencias
+    sql_regulares = '''
+        SELECT i.id_aluno, i.id_turma, t.valor_mensal_base, i.data_inscricao
+        FROM inscricoes i
+        JOIN turmas t ON i.id_turma = t.id_turma
+        WHERE i.status_academico = 'Ativo' AND t.is_particular = 0
+    '''
+    cursor.execute(sql_regulares)
+    regulares = cursor.fetchall()
+
+    sql_particulares = '''
+        SELECT i.id_aluno, i.id_turma, f.id_frequencia, f.valor_aula_momento, i.data_inscricao
         FROM frequencia_particulares f
         JOIN inscricoes i ON f.id_inscricao = i.id_inscricao
+        JOIN turmas t ON i.id_turma = t.id_turma
         WHERE f.faturado = 0
-        GROUP BY i.id_aluno, i.id_turma
     '''
-    cursor.execute(sql)
-    pendencias = cursor.fetchall()
+    cursor.execute(sql_particulares)
+    particulares = cursor.fetchall()
+
+    alunos_fatura = {}
     
-    for p in pendencias:
-        id_aluno, id_turma, valor_total, qtd, ids = p
-        
-        sql_pagamento = '''
-            INSERT INTO pagamentos (id_aluno, id_turma, mes_referencia, valor_final, status, data_vencimento)
-            VALUES (?, ?, ?, ?, 'Pendente', ?)
-        '''
-        data_vencimento = f"10/{mes_referencia}" 
-        cursor.execute(sql_pagamento, (id_aluno, id_turma, mes_referencia, valor_total, data_vencimento))
-        
-        lista_ids = ids.split(',')
-        for id_f in lista_ids:
-            cursor.execute('UPDATE frequencia_particulares SET faturado = 1 WHERE id_frequencia = ?', (id_f,))
+    for reg in regulares:
+        id_aluno, id_turma, valor, data_inscricao = reg
+        if id_aluno not in alunos_fatura:
+            dia_vencimento = data_inscricao.split('/')[0] if data_inscricao else '10'
+            alunos_fatura[id_aluno] = {'regulares': [], 'particulares': [], 'dia_base': dia_vencimento}
             
+        alunos_fatura[id_aluno]['regulares'].append({'id_turma': id_turma, 'valor': valor})
+
+    for part in particulares:
+        id_aluno, id_turma, id_freq, valor, data_inscricao = part
+        if id_aluno not in alunos_fatura:
+            dia_vencimento = data_inscricao.split('/')[0] if data_inscricao else '10'
+            alunos_fatura[id_aluno] = {'regulares': [], 'particulares': [], 'dia_base': dia_vencimento}
+            
+        alunos_fatura[id_aluno]['particulares'].append({'id_turma': id_turma, 'id_frequencia': id_freq, 'valor': valor})
+
+    contador_faturas = 0
+
+    for id_aluno, dados in alunos_fatura.items():
+        
+        valor_bruto_regular = sum([item['valor'] for item in dados['regulares']])
+        valor_bruto_particular = sum([item['valor'] for item in dados['particulares']])
+        valor_bruto_total = valor_bruto_regular + valor_bruto_particular
+        
+        desconto_aplicado = 0.0
+        id_plano_usado = None
+        
+        if len(dados['regulares']) >= 2:
+            desconto_aplicado = valor_bruto_regular * 0.10
+            id_plano_usado = 5 
+            
+        valor_final = valor_bruto_total - desconto_aplicado
+
+        if valor_final <= 0:
+            continue
+
+        cursor.execute("SELECT id_fatura FROM faturas WHERE id_aluno = ? AND mes_referencia = ?", (id_aluno, mes_referencia))
+        if cursor.fetchone():
+            continue
+
+        dia_str = dados['dia_base']
+        try:
+            datetime.strptime(f"{dia_str}/{mes_referencia}", "%d/%m/%Y")
+            data_vencimento = f"{dia_str}/{mes_referencia}"
+        except ValueError:
+            mes, ano = mes_referencia.split('/')
+            ultimo_dia = calendar.monthrange(int(ano), int(mes))[1]
+            data_vencimento = f"{ultimo_dia:02d}/{mes_referencia}"
+
+        sql_fatura = '''
+            INSERT INTO faturas (id_aluno, mes_referencia, data_vencimento, valor_bruto, desconto_aplicado, valor_final, status)
+            VALUES (?, ?, ?, ?, ?, ?, 'Pendente')
+        '''
+        cursor.execute(sql_fatura, (id_aluno, mes_referencia, data_vencimento, valor_bruto_total, desconto_aplicado, valor_final))
+        id_fatura = cursor.lastrowid
+        
+        for reg in dados['regulares']:
+            valor_com_rateio = reg['valor'] - (desconto_aplicado / len(dados['regulares'])) if desconto_aplicado > 0 else reg['valor']
+            
+            sql_pag = '''
+                INSERT INTO pagamentos (id_fatura, id_aluno, id_turma, id_plano, mes_referencia, data_vencimento, valor_final, status)
+                VALUES (?, ?, ?, ?, ?, ?, ?, 'Pendente')
+            '''
+            cursor.execute(sql_pag, (id_fatura, id_aluno, reg['id_turma'], id_plano_usado, mes_referencia, data_vencimento, valor_com_rateio))
+            
+        ids_frequencias = []
+        for part in dados['particulares']:
+            sql_pag_part = '''
+                INSERT INTO pagamentos (id_fatura, id_aluno, id_turma, mes_referencia, data_vencimento, valor_final, status)
+                VALUES (?, ?, ?, ?, ?, ?, 'Pendente')
+            '''
+            cursor.execute(sql_pag_part, (id_fatura, id_aluno, part['id_turma'], mes_referencia, data_vencimento, part['valor']))
+            ids_frequencias.append(str(part['id_frequencia']))
+            
+        if ids_frequencias:
+            placeholders = ','.join(['?'] * len(ids_frequencias))
+            cursor.execute(f"UPDATE frequencia_particulares SET faturado = 1 WHERE id_frequencia IN ({placeholders})", ids_frequencias)
+            
+        contador_faturas += 1
+
     conexao.commit()
     conexao.close()
-    return f"Fechamento de {mes_referencia} concluído! {len(pendencias)} cobranças geradas."
-
+    
+    return f"Fechamento de {mes_referencia} concluído! {contador_faturas} faturas foram geradas com sucesso."
 
 ##### INADIMPLENCIAS ######
 def listar_detalhes_inadimplencia():
@@ -1286,23 +1404,77 @@ def listar_despesas(mes_referencia):
     conexao.close()
 
     lista = []
+    hoje = datetime.now().date()
+
     for r in resultados:
+        id_despesa, descricao, tipo, valor, data_venc_str, status_bd = r
+        
+        data_formatada = "-"
+        status_visual = status_bd
+
+        if data_venc_str:
+            try:
+                data_obj = datetime.strptime(data_venc_str, "%Y-%m-%d").date()
+                
+                data_formatada = data_obj.strftime("%d/%m/%Y")
+                
+                if status_bd != 'Pago' and hoje > data_obj:
+                    status_visual = 'Vencido'
+                    
+            except ValueError:
+                data_formatada = data_venc_str
+
         lista.append({
-            "id_despesa": r[0],
-            "descricao": r[1],
-            "tipo_despesa": r[2],
-            "valor": r[3],
-            "data_vencimento": r[4],
-            "status_pagamento": r[5]
+            "id_despesa": id_despesa,
+            "descricao": descricao,
+            "tipo_despesa": tipo,
+            "valor": valor,
+            "data_vencimento": data_formatada,
+            "status_pagamento": status_visual
         })
+        
     return lista
 
 def quitar_despesa(id_despesa):
     conexao, cursor = conectar_banco()
-    cursor.execute("UPDATE despesas SET status_pagamento = 'Pago' WHERE id_despesa = ?", (id_despesa,))
-    conexao.commit()
-    conexao.close()
-    return "Despesa baixada com sucesso! O valor foi debitado."
+    
+    cursor.execute("SELECT valor, descricao, status_pagamento FROM despesas WHERE id_despesa = ?", (id_despesa,))
+    res = cursor.fetchone()
+    
+    if not res:
+        conexao.close()
+        return "Erro: Despesa não encontrada.", "danger"
+    
+    valor_despesa, descricao, status_atual = res
+    
+    if status_atual == 'Pago':
+        conexao.close()
+        return "Esta despesa já foi baixada anteriormente.", "warning"
+
+    cursor.execute("SELECT saldo_principal FROM saldos_caixa WHERE id_saldo = 1")
+    saldo_principal = cursor.fetchone()[0]
+    
+    if valor_despesa > saldo_principal:
+        conexao.close()
+        return f"Saldo insuficiente no Caixa Principal (R$ {saldo_principal:.2f}) para pagar R$ {valor_despesa:.2f}.", "danger"
+    
+    try:
+        cursor.execute("UPDATE saldos_caixa SET saldo_principal = saldo_principal - ? WHERE id_saldo = 1", (valor_despesa,))
+        
+        data_hoje = datetime.now().strftime("%d/%m/%Y %H:%M")
+        sql_historico = "INSERT INTO historico_saques (caixa_origem, descricao, valor, data_saque) VALUES (?, ?, ?, ?)"
+        cursor.execute(sql_historico, ("Principal", f"Pagto Despesa: {descricao}", valor_despesa, data_hoje))
+        
+        cursor.execute("UPDATE despesas SET status_pagamento = 'Pago' WHERE id_despesa = ?", (id_despesa,))
+        
+        conexao.commit()
+        return f"Despesa '{descricao}' paga com sucesso! Valor debitado do Caixa Principal.", "success"
+        
+    except Exception as e:
+        conexao.rollback()
+        return f"Erro técnico ao processar pagamento: {str(e)}", "danger"
+    finally:
+        conexao.close()
 
 def atualizar_despesa(id_despesa, descricao, tipo_despesa, valor, data_vencimento, mes_referencia):
     conexao, cursor = conectar_banco()

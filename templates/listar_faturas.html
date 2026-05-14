@@ -1,0 +1,146 @@
+{% extends 'base.html' %}
+
+{% block titulo %}Gestão de Mensalidades - ATO{% endblock %}
+
+{% block conteudo %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="mb-0">💳 Gestão de Mensalidades: <span class="text-primary">{{ mes_atual }}</span></h2>
+        <small class="text-muted">Controle unificado de faturas (Regulares e Particulares).</small>
+    </div>
+    
+    <div class="d-flex gap-2">
+        <form action="/faturas" method="GET" class="d-flex gap-2">
+            <input type="text" name="mes" class="form-control shadow-sm" value="{{ mes_atual }}" placeholder="MM/AAAA" maxlength="7" required style="width: 100px; text-align: center;">
+            <button type="submit" class="btn btn-outline-secondary shadow-sm">🔍 Filtrar</button>
+        </form>
+        
+        <button class="btn badge-ato shadow-sm" data-bs-toggle="modal" data-bs-target="#modalGerarFaturas">
+            ⚙️ Gerar Mensalidades do Mês
+        </button>
+    </div>
+</div>
+
+<div class="card shadow-sm border-0" style="border-radius: 12px;">
+    <div class="card-body">
+        <table class="table table-hover tabela-datatable">
+            <thead>
+                <tr>
+                    <th>Aluno</th>
+                    <th>Mês Ref.</th>
+                    <th>Vencimento</th>
+                    <th>Valor Total</th>
+                    <th class="text-center">Status</th>
+                    <th class="text-center">Ações</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for fatura in lista_faturas %}
+                <tr>
+                    <td class="fw-bold">{{ fatura.nome_aluno }}</td>
+                    <td>{{ fatura.mes_referencia }}</td>
+                    <td>{{ fatura.data_vencimento }}</td>
+                    <td class="text-primary fw-bold">R$ {{ "%.2f"|format(fatura.valor_final) }}</td>
+                    <td class="text-center">
+                        {% if fatura.status == 'Pago' %}
+                            <span class="badge bg-success">✅ Pago</span>
+                        {% elif fatura.status == 'Vencido' %}
+                            <span class="badge bg-danger">🚨 Vencido</span>
+                        {% else %}
+                            <span class="badge bg-warning text-dark">⏳ Pendente</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-center">
+                        <button class="btn btn-sm btn-outline-primary" 
+                                onclick="verDetalhesFatura('{{ fatura.id_fatura }}', '{{ fatura.nome_aluno }}')">
+                            🔍 Ver Itens
+                        </button>
+                        
+                        {% if fatura.status != 'Pago' %}
+                            <button class="btn btn-sm btn-success">💲 Baixar</button>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="modal fade" id="modalDetalhesFatura" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header card-header-ato text-white">
+                <h5 class="modal-title">Detalhes da Cobrança: <span id="nomeAlunoModal"></span></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <table class="table table-sm">
+                    <thead>
+                        <tr>
+                            <th>Descrição (Turma/Aula)</th>
+                            <th class="text-end">Valor</th>
+                        </tr>
+                    </thead>
+                    <tbody id="corpoTabelaItens">
+                        </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function verDetalhesFatura(idFatura, nomeAluno) {
+    document.getElementById('nomeAlunoModal').innerText = nomeAluno;
+    const corpoTabela = document.getElementById('corpoTabelaItens');
+    corpoTabela.innerHTML = '<tr><td colspan="2" class="text-center">A carregar...</td></tr>';
+
+    // Abrir o modal
+    var meuModal = new bootstrap.Modal(document.getElementById('modalDetalhesFatura'));
+    meuModal.show();
+
+    // Buscar dados na API no Flask
+    fetch('/api/fatura_detalhes/' + idFatura)
+        .then(response => response.json())
+        .then(dados => {
+            corpoTabela.innerHTML = '';
+            dados.forEach(item => {
+                corpoTabela.innerHTML += `
+                    <tr>
+                        <td>${item.nome_turma} <br> <small class="text-muted">${item.nome_plano}</small></td>
+                        <td class="text-end">R$ ${item.valor.toFixed(2)}</td>
+                    </tr>
+                `;
+            });
+        });
+}
+</script>
+
+<div class="modal fade" id="modalGerarFaturas" tabindex="-1">
+    <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title">Gerar Faturas</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <form action="/gerar_faturas" method="POST">
+                <div class="modal-body">
+                    <p class="small text-muted mb-3">O sistema vai varrer as turmas ativas e os check-ins pendentes para montar as faturas.</p>
+                    
+                    <label class="form-label fw-bold">Mês de Referência*</label>
+                    <input type="text" name="mes_referencia" class="form-control text-center fs-5" 
+                           placeholder="MM/AAAA" maxlength="7" required>
+                </div>
+                <div class="modal-footer">
+                    <button type="submit" class="btn btn-primary w-100" 
+                            onclick="if(this.form.checkValidity()){ this.disabled=true; this.form.submit(); } else { this.form.reportValidity(); }">
+                        Confirmar e Gerar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
