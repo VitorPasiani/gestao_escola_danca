@@ -140,7 +140,8 @@ def inicializar_banco():
         CREATE TABLE IF NOT EXISTS eventos (
             id_evento INTEGER PRIMARY KEY AUTOINCREMENT,
             nome_evento TEXT NOT NULL,
-            data_evento TEXT NOT NULL
+            data_evento TEXT NOT NULL,
+            status TEXT DEFAULT 'Aberto'
         )
     ''')
 
@@ -157,33 +158,36 @@ def inicializar_banco():
         )
     ''')
 
-# TABELA HISTORICO DE SAQUES
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS historico_saques (
-            id_saque INTEGER PRIMARY KEY AUTOINCREMENT,
-            caixa_origem TEXT NOT NULL,
-            descricao TEXT NOT NULL,
-            valor REAL NOT NULL,
-            data_saque TEXT NOT NULL
-        )
-    ''')
-
-# TABELA SALDOS CAIXA (Adicionado saldo_reserva)
+    # TABELA CAIXAS
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS saldos_caixa (
             id_saldo INTEGER PRIMARY KEY AUTOINCREMENT,
             saldo_principal REAL DEFAULT 0.0,
             saldo_matriculas REAL DEFAULT 0.0,
             saldo_avulsas REAL DEFAULT 0.0,
+            saldo_eventos REAL DEFAULT 0.0,
             saldo_reserva REAL DEFAULT 0.0
         )
     ''')
 
     cursor.execute('SELECT COUNT(*) FROM saldos_caixa')
     if cursor.fetchone()[0] == 0:
-        cursor.execute('INSERT INTO saldos_caixa (saldo_principal, saldo_matriculas, saldo_avulsas, saldo_reserva) VALUES (0.0, 0.0, 0.0, 0.0)')
+        cursor.execute('INSERT INTO saldos_caixa (saldo_principal, saldo_matriculas, saldo_avulsas, saldo_eventos, saldo_reserva) VALUES (0.0, 0.0, 0.0, 0.0, 0.0)')
 
-# TABELA FATURAS
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS movimentacoes_caixa (
+            id_movimentacao INTEGER PRIMARY KEY AUTOINCREMENT,
+            caixa_alvo TEXT NOT NULL,         -- 'Operacional', 'Matriculas', etc.
+            tipo_movimentacao TEXT NOT NULL,  -- 'Entrada', 'Saida', 'Transferencia'
+            valor REAL NOT NULL,
+            descricao TEXT,
+            data_movimentacao TEXT NOT NULL,
+            caixa_destino_transferencia TEXT, -- Usado apenas se for tipo 'Transferencia'
+            id_usuario INTEGER                -- Para auditoria futura
+        )
+    ''')
+
+    # TABELA FATURAS
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS faturas (
             id_fatura INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -202,7 +206,7 @@ def inicializar_banco():
         )
     ''')
 
-# TABELA DESPESAS (Fixas e Variáveis)
+    # TABELA DESPESAS (Fixas e Variáveis)
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS despesas (
             id_despesa INTEGER PRIMARY KEY AUTOINCREMENT,

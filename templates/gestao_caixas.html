@@ -2,60 +2,147 @@
 {% block titulo %}Gestão de Caixas - ATO Espaço de Dança{% endblock %}
 
 {% block conteudo %}
-<h2 class="mb-4">Gestão de Caixas Internos</h2>
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="mb-0">Gestão de Caixas</h2>
+        <small class="text-muted">Controle unificado de saldos e transferências do ecossistema.</small>
+    </div>
+    <button type="button" class="btn badge-ato shadow-sm px-4 py-2" data-bs-toggle="modal" data-bs-target="#modalMovimentacao">
+        🔄 Nova Movimentação
+    </button>
+</div>
 
 <div class="row mb-4 g-3">
-    <div class="col-md-4">
-        <div class="card text-center shadow-sm border-0" style="background-color: #e2e3e5;">
-            <div class="card-body py-4">
-                <h6 class="text-uppercase fw-bold text-secondary mb-1">Caixa Principal</h6>
-                <h3 class="fw-bold text-dark mb-0">R$ {{ "%.2f"|format(saldos.Principal) }}</h3>
-                <small class="text-muted">Mensalidades e Planos</small>
+    <div class="col">
+        <div class="card text-center shadow-sm border-0 h-100" style="background-color: #e2e3e5; border-bottom: 4px solid #6c757d !important;">
+            <div class="card-body py-3">
+                <h6 class="text-uppercase fw-bold text-secondary mb-1">⚡ Operacional</h6>
+                <h4 class="fw-bold text-dark mb-0">R$ {{ "%.2f"|format(saldos.Principal) }}</h4>
+                <small class="text-muted" style="font-size: 0.75rem;">Mês e Despesas</small>
             </div>
         </div>
     </div>
-    <div class="col-md-4">
-        <div class="card text-center shadow-sm border-0" style="background-color: #B0FEFE;">
-            <div class="card-body py-4">
-                <h6 class="text-uppercase fw-bold text-dark mb-1">Caixa Matrículas</h6>
-                <h3 class="fw-bold text-dark mb-0">R$ {{ "%.2f"|format(saldos.Matriculas) }}</h3>
-                <small class="text-muted">Taxas de Adesão</small>
+    <div class="col">
+        <div class="card text-center shadow-sm border-0 h-100" style="background-color: #B0FEFE; border-bottom: 4px solid #0dcaf0 !important;">
+            <div class="card-body py-3">
+                <h6 class="text-uppercase fw-bold text-dark mb-1">🎓 Matrículas</h6>
+                <h4 class="fw-bold text-dark mb-0">R$ {{ "%.2f"|format(saldos.Matriculas) }}</h4>
+                <small class="text-muted" style="font-size: 0.75rem;">Adesão e Materiais</small>
             </div>
         </div>
     </div>
-    <div class="col-md-4">
-        <div class="card text-center shadow-sm border-0" style="background-color: #f5c5d1;">
-            <div class="card-body py-4">
-                <h6 class="text-uppercase fw-bold text-dark mb-1">Caixa Avulsas</h6>
-                <h3 class="fw-bold text-dark mb-0">R$ {{ "%.2f"|format(saldos.Avulsas) }}</h3>
-                <small class="text-muted">Lucro de Aulas Avulsas</small>
+    <div class="col">
+        <div class="card text-center shadow-sm border-0 h-100" style="background-color: #f5c5d1; border-bottom: 4px solid #d63384 !important;">
+            <div class="card-body py-3">
+                <h6 class="text-uppercase fw-bold text-dark mb-1">💃 Avulsas</h6>
+                <h4 class="fw-bold text-dark mb-0">R$ {{ "%.2f"|format(saldos.Avulsas) }}</h4>
+                <small class="text-muted" style="font-size: 0.75rem;">Aulas e Oficinas</small>
+            </div>
+        </div>
+    </div>
+    <div class="col">
+        <div class="card text-center shadow-sm border-0 h-100" style="background-color: #fff3cd; border-bottom: 4px solid #ffc107 !important;">
+            <div class="card-body py-3">
+                <h6 class="text-uppercase fw-bold text-dark mb-1">🎭 Eventos</h6>
+                <h4 class="fw-bold text-dark mb-0">R$ {{ "%.2f"|format(saldos.Eventos) }}</h4>
+                <small class="text-muted" style="font-size: 0.75rem;">Festivais e Mostras</small>
+            </div>
+        </div>
+    </div>
+    <div class="col">
+        <div class="card text-center shadow-sm border-0 h-100" style="background-color: #203760; color: white; border-bottom: 4px solid #101c30 !important;">
+            <div class="card-body py-3">
+                <h6 class="text-uppercase fw-bold mb-1" style="color: #B0FEFE;">🛡️ Reserva</h6>
+                <h4 class="fw-bold mb-0">R$ {{ "%.2f"|format(saldos.Reserva) }}</h4>
+                <small style="font-size: 0.75rem; color: #d0d0d0;">Lucro e Proteção</small>
             </div>
         </div>
     </div>
 </div>
 
-<div class="row">
-    <div class="col-md-4 mb-4">
-        <div class="card shadow-sm border-0" style="border-radius: 12px;">
-            <div class="card-header card-header-ato" style="border-radius: 12px 12px 0 0;">
-                <h5 class="mb-0">Registrar Retirada / Saque</h5>
+<div class="card shadow-sm border-0" style="border-radius: 12px;">
+    <div class="card-body">
+        <h5 class="card-title text-primary fw-bold mb-3">Livro Diário (Últimas Movimentações)</h5>
+        
+        <table class="table table-hover mt-3 tabela-datatable">
+            <thead class="table-light">
+                <tr>
+                    <th>Data/Hora</th>
+                    <th>Tipo</th>
+                    <th>Caixa Alvo</th>
+                    <th>Descrição</th>
+                    <th class="text-end">Valor (R$)</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for mov in movimentacoes %}
+                <tr>
+                    <td class="text-muted">{{ mov.data }}</td>
+                    <td>
+                        {% if mov.tipo == 'Entrada' %} <span class="badge bg-success">Entrada</span>
+                        {% elif mov.tipo == 'Saida' %} <span class="badge bg-danger">Saída</span>
+                        {% else %} <span class="badge bg-info text-dark">Transferência</span>
+                        {% endif %}
+                    </td>
+                    <td class="fw-bold">
+                        {{ mov.caixa_alvo }}
+                        {% if mov.tipo == 'Transferencia' %} ➔ {{ mov.caixa_destino }}{% endif %}
+                    </td>
+                    <td>{{ mov.descricao }}</td>
+                    <td class="text-end fw-bold {{ 'text-success' if mov.tipo == 'Entrada' else 'text-danger' if mov.tipo == 'Saida' else 'text-info' }}">
+                        {{ '+' if mov.tipo == 'Entrada' else '-' if mov.tipo == 'Saida' else '⇄' }} R$ {{ "%.2f"|format(mov.valor) }}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="modal fade" id="modalMovimentacao" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header card-header-ato text-white">
+                <h5 class="modal-title">Registrar Movimentação</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
-            <div class="card-body bg-light">
-                <form action="/gestao_caixas" method="POST" autocomplete="off">
+            <form action="/movimentar_caixa" method="POST" autocomplete="off">
+                <div class="modal-body">
                     
                     <div class="mb-3">
-                        <label class="form-label fw-bold">Caixa de Origem*</label>
-                        <select name="caixa_origem" class="form-select" required>
-                            <option value="" disabled selected>Selecione de onde tirar...</option>
-                            <option value="Principal">Caixa Principal</option>
-                            <option value="Matriculas">Caixa Matrículas</option>
-                            <option value="Avulsas">Caixa Avulsas</option>
+                        <label class="form-label fw-bold">Tipo de Operação*</label>
+                        <select name="tipo_movimentacao" id="tipo_movimentacao" class="form-select" required onchange="toggleTransferencia()">
+                            <option value="" disabled selected>Selecione...</option>
+                            <option value="Entrada">📥 Nova Entrada (Adicionar Saldo)</option>
+                            <option value="Saida">📤 Nova Saída (Retirar Saldo)</option>
+                            <option value="Transferencia">🔄 Transferência entre Caixas</option>
                         </select>
                     </div>
 
-                    <div class="mb-3">
-                        <label class="form-label fw-bold">Descrição da Despesa*</label>
-                        <input type="text" name="descricao" class="form-control" placeholder="Ex: Compra de Papel Toalha" required>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold" id="label_caixa_alvo">Caixa de Origem*</label>
+                            <select name="caixa_alvo" class="form-select" required>
+                                <option value="" disabled selected>Selecione...</option>
+                                <option value="Operacional">⚡ Operacional (Principal)</option>
+                                <option value="Matriculas">🎓 Matrículas</option>
+                                <option value="Avulsas">💃 Avulsas</option>
+                                <option value="Eventos">🎭 Eventos</option>
+                                <option value="Reserva">🛡️ Reserva da Escola</option>
+                            </select>
+                        </div>
+                        
+                        <div class="col-md-6 mb-3" id="div_caixa_destino" style="display: none;">
+                            <label class="form-label fw-bold text-primary">Caixa de Destino*</label>
+                            <select name="caixa_destino" id="caixa_destino" class="form-select border-primary">
+                                <option value="" disabled selected>Para onde vai?</option>
+                                <option value="Operacional">⚡ Operacional (Principal)</option>
+                                <option value="Matriculas">🎓 Matrículas</option>
+                                <option value="Avulsas">💃 Avulsas</option>
+                                <option value="Eventos">🎭 Eventos</option>
+                                <option value="Reserva">🛡️ Reserva da Escola</option>
+                            </select>
+                        </div>
                     </div>
 
                     <div class="mb-3">
@@ -63,46 +150,40 @@
                         <input type="number" step="0.01" name="valor" class="form-control" placeholder="0.00" required>
                     </div>
 
-                    <button type="submit" class="btn badge-ato w-100 py-2 shadow-sm" onclick="this.disabled=true; this.form.submit();">
-                        Confirmar Saque
-                    </button>
-                </form>
-            </div>
-        </div>
-    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Descrição da Movimentação*</label>
+                        <input type="text" name="descricao" class="form-control" placeholder="Ex: Compra de material, Transferência de Lucro..." required>
+                    </div>
 
-    <div class="col-md-8">
-        <div class="card shadow-sm border-0" style="border-radius: 12px;">
-            <div class="card-body">
-                <h5 class="card-title text-primary fw-bold mb-3">Histórico de Saques</h5>
-                
-                <table class="table table-hover mt-3 tabela-datatable">
-                    <thead class="table-light">
-                        <tr>
-                            <th>Data/Hora</th>
-                            <th>Caixa</th>
-                            <th>Descrição</th>
-                            <th class="text-end">Valor Retirado</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for item in historico %}
-                        <tr>
-                            <td class="text-muted">{{ item.data }}</td>
-                            <td>
-                                {% if item.caixa == 'Principal' %} <span class="badge bg-secondary">Principal</span>
-                                {% elif item.caixa == 'Matriculas' %} <span class="badge text-dark" style="background-color: #B0FEFE;">Matrículas</span>
-                                {% else %} <span class="badge text-dark" style="background-color: #f5c5d1;">Avulsas</span>
-                                {% endif %}
-                            </td>
-                            <td>{{ item.descricao }}</td>
-                            <td class="text-end text-danger fw-bold">- R$ {{ "%.2f"|format(item.valor) }}</td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn badge-ato" onclick="if(this.form.checkValidity()){ this.disabled=true; this.form.submit(); } else { this.form.reportValidity(); }">
+                        Confirmar Operação
+                    </button>
+                </div>
+            </form>
         </div>
     </div>
 </div>
+
+<script>
+    function toggleTransferencia() {
+        const tipo = document.getElementById('tipo_movimentacao').value;
+        const divDestino = document.getElementById('div_caixa_destino');
+        const selectDestino = document.getElementById('caixa_destino');
+        const labelAlvo = document.getElementById('label_caixa_alvo');
+
+        if (tipo === 'Transferencia') {
+            divDestino.style.display = 'block';
+            selectDestino.required = true;
+            labelAlvo.innerText = 'Caixa de Origem (Sai)*';
+        } else {
+            divDestino.style.display = 'none';
+            selectDestino.required = false;
+            selectDestino.value = '';
+            labelAlvo.innerText = tipo === 'Entrada' ? 'Caixa Alvo (Entra)*' : 'Caixa de Origem (Sai)*';
+        }
+    }
+</script>
 {% endblock %}

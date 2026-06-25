@@ -57,7 +57,9 @@
                         </button>
                         
                         {% if fatura.status != 'Pago' %}
-                            <button class="btn btn-sm btn-success">💲 Baixar</button>
+                            <button type="button" class="btn btn-sm btn-success shadow-sm" data-bs-toggle="modal" data-bs-target="#modalBaixar{{ fatura.id_fatura }}">
+                                💲 Baixar
+                            </button>
                         {% endif %}
                     </td>
                 </tr>
@@ -142,5 +144,66 @@ function verDetalhesFatura(idFatura, nomeAluno) {
         </div>
     </div>
 </div>
+
+{% for fatura in lista_faturas %}
+    {% if fatura.status != 'Pago' %}
+    <div class="modal fade" id="modalBaixar{{ fatura.id_fatura }}" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content text-start">
+                <div class="modal-header bg-success text-white">
+                    <h5 class="modal-title">Confirmar Pagamento: {{ fatura.nome_aluno }}</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                
+                <!-- O formulário aponta para a rota que acabamos de criar no app.py -->
+                <form action="/baixar_fatura/{{ fatura.id_fatura }}" method="POST">
+                    <div class="modal-body">
+                        <p>Valor da Fatura: <strong>R$ {{ "%.2f"|format(fatura.valor_final) }}</strong></p>
+                        
+                        <div class="row bg-light p-3 rounded border">
+                            <div class="col-md-7 d-flex align-items-center">
+                                <div class="form-check form-switch">
+                                    <!-- Cada switch precisa de um ID único, por isso concatenamos com o ID da fatura -->
+                                    <input class="form-check-input" type="checkbox" id="usar_maquininha_{{ fatura.id_fatura }}" name="usar_maquininha" value="1" onchange="toggleTaxa('{{ fatura.id_fatura }}')">
+                                    <label class="form-check-label fw-bold text-primary ms-2" for="usar_maquininha_{{ fatura.id_fatura }}">Foi no Cartão?</label>
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-5" id="caixa_taxa_{{ fatura.id_fatura }}" style="display: none;">
+                                <label class="form-label fw-bold text-danger mb-1" style="font-size: 0.85rem;">Taxa (%)*</label>
+                                <input type="number" step="0.01" name="taxa_maquininha" id="input_taxa_{{ fatura.id_fatura }}" class="form-control form-control-sm border-danger" placeholder="Ex: 5.0">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <!-- Prevenção de Double Submit para ninguém pagar a fatura duas vezes sem querer -->
+                        <button type="submit" class="btn btn-success" onclick="if(this.form.checkValidity()){ this.disabled=true; this.form.submit(); } else { this.form.reportValidity(); }">
+                            ✔️ Confirmar Recebimento
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+{% endfor %}
+
+<script>
+    function toggleTaxa(idFatura) {
+        const checkbox = document.getElementById('usar_maquininha_' + idFatura);
+        const caixaTaxa = document.getElementById('caixa_taxa_' + idFatura);
+        const inputTaxa = document.getElementById('input_taxa_' + idFatura);
+        
+        if(checkbox.checked) {
+            caixaTaxa.style.display = 'block';
+            inputTaxa.required = true;
+        } else {
+            caixaTaxa.style.display = 'none';
+            inputTaxa.required = false;
+            inputTaxa.value = '';
+        }
+    }
+</script>
 
 {% endblock %}

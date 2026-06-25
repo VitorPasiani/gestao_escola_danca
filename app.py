@@ -47,8 +47,8 @@ from operacoes import (
     executar_limpeza_inadimplentes,
     gerar_relatorio_dre,
     consultar_saldos,
-    registrar_saque,
-    listar_historico_saques,
+    registrar_movimentacao_caixa,
+    listar_movimentacoes_caixa,
     quitar_taxa_matricula,
     cadastrar_despesa,
     clonar_despesas_mes_anterior,
@@ -58,7 +58,15 @@ from operacoes import (
     atualizar_despesa,
     listar_faturas,
     buscar_itens_fatura,
-    processar_fechamento_mensal
+    processar_fechamento_mensal,
+    baixar_fatura_unificada,
+    cadastrar_evento,
+    listar_eventos,
+    deletar_evento,
+    cadastrar_transacao_evento,
+    deletar_transacao_evento,
+    buscar_balanco_evento,
+    encerrar_evento_e_transferir_saldo
 )
 
 import sqlite3
@@ -669,22 +677,49 @@ def rota_gerar_faturas():
         
     return redirect(f'/faturas?mes={mes_referencia}')
 
-##### FINANCEIRO - SAQUES E SALDOS #####
-@app.route('/gestao_caixas', methods=['GET', 'POST'])
-def rota_gestao_caixas():
-    if request.method == 'POST':
-        caixa_origem = request.form.get('caixa_origem')
-        descricao = request.form.get('descricao')
-        valor = float(request.form.get('valor'))
-        
-        mensagem, categoria = registrar_saque(caixa_origem, descricao, valor)
-        flash(mensagem, categoria)
-        return redirect('/gestao_caixas')
-        
-    saldos_atuais = consultar_saldos()
-    historico = listar_historico_saques()
+@app.route('/api/fatura_detalhes/<int:id_fatura>')
+def api_detalhes_fatura(id_fatura):
+    itens = buscar_itens_fatura(id_fatura)
     
-    return render_template('gestao_caixas.html', saldos=saldos_atuais, historico=historico)
+    return jsonify(itens)
+
+@app.route('/baixar_fatura/<int:id_fatura>', methods=['POST'])
+def rota_baixar_fatura(id_fatura):
+    usar_maquininha = request.form.get('usar_maquininha') == '1'
+    taxa_str = request.form.get('taxa_maquininha')
+    
+    taxa_decimal = 0.0
+    if usar_maquininha and taxa_str:
+        taxa_decimal = float(taxa_str) / 100.0
+        
+    try:
+        mensagem, categoria = baixar_fatura_unificada(id_fatura, usar_maquininha, taxa_decimal)
+        flash(mensagem, categoria) # Exibe o pop-up de sucesso ou erro na tela
+    except Exception as e:
+        flash(f"Erro ao processar baixa: {str(e)}", 'danger')
+        
+    return redirect(request.referrer or '/faturas')
+
+##### FINANCEIRO - SAQUES E SALDOS #####
+@app.route('/gestao_caixas', methods=['GET'])
+def rota_gestao_caixas():
+    saldos_atuais = consultar_saldos()
+    movimentacoes = listar_movimentacoes_caixa()
+    
+    return render_template('gestao_caixas.html', saldos=saldos_atuais, movimentacoes=movimentacoes)
+
+@app.route('/movimentar_caixa', methods=['POST'])
+def rota_movimentar_caixa():
+    tipo = request.form.get('tipo_movimentacao')
+    caixa_alvo = request.form.get('caixa_alvo')
+    caixa_destino = request.form.get('caixa_destino')
+    valor = float(request.form.get('valor'))
+    descricao = request.form.get('descricao')
+    
+    mensagem, categoria = registrar_movimentacao_caixa(caixa_alvo, tipo, valor, descricao, caixa_destino)
+    flash(mensagem, categoria)
+    
+    return redirect('/gestao_caixas')
 
 ### DESPESAS FIXAS E VARIÁVEIS ###
 @app.route('/despesas', methods=['GET', 'POST'])
@@ -740,6 +775,69 @@ def rota_excluir_despesa(id_despesa):
     mensagem = excluir_despesa(id_despesa)
     flash(mensagem, 'warning')
     return redirect(request.referrer or '/despesas')
+
+### GESTÃO DE EVENTOS ###
+@app.route('/eventos', methods=['GET', 'POST'])
+def pagina_eventos():
+    if request.method == 'POST':
+        nome_evento = request.form.get('nome_evento')
+        data_evento = request.form.get('data_evento')
+        
+        try:
+            mensagem = cadastrar_evento(nome_evento, data_evento)
+            flash(mensagem, 'success')
+        except Exception as e:
+            flash(f"Erro ao criar evento: {str(e)}", 'danger')
+            
+        return redirect('/eventos')
+
+    lista = listar_eventos()
+    return render_template('listar_eventos.html', lista_eventos=lista)
+
+@app.route('/painel_evento/<int:id_evento>')
+def painel_evento(id_evento):
+    dados_evento = buscar_balanco_evento(id_evento)
+    return render_template('painel_evento.html', evento=dados_evento, id_evento=id_evento)
+
+@app.route('/transacao_evento/<int:id_evento>', methods=['POST'])
+def rota_transacao_evento(id_evento):
+    descricao = request.form.get('descricao')
+    tipo = request.form.get('tipo')
+    valor = float(request.form.get('valor') or 0.0)
+    
+    try:
+        mensagem = cadastrar_transacao_evento(id_evento, descricao, tipo, valor)
+        flash(mensagem, 'success')
+    except Exception as e:
+        flash(f"Erro financeiro: {str(e)}", 'danger')
+        
+    return redirect(f'/painel_evento/{id_evento}')
+
+@app.route('/deletar_transacao_evento/<int:id_evento>/<int:id_transacao>')
+def rota_deletar_transacao_evento(id_evento, id_transacao):
+    mensagem, categoria = deletar_transacao_evento(id_transacao, id_evento)
+    flash(mensagem, categoria)
+    
+    return redirect(f'/painel_evento/{id_evento}')
+
+@app.route('/encerrar_evento/<int:id_evento>', methods=['POST'])
+def rota_encerrar_evento(id_evento):
+    mensagem, categoria = encerrar_evento_e_transferir_saldo(id_evento)
+    flash(mensagem, categoria)
+    return redirect('/eventos')
+
+@app.route('/deletar_evento/<int:id_evento>')
+def rota_deletar_evento(id_evento):
+    try:
+        mensagem = deletar_evento(id_evento)
+        flash(mensagem, 'success')
+    except sqlite3.IntegrityError:
+        # Trava de segurança: O banco de dados impede a exclusão se houver registros financeiros atrelados (Foreign Key)
+        flash("Não é possível excluir este evento pois ele já possui transações financeiras registradas.", 'danger')
+    except Exception as e:
+        flash(f"Erro ao excluir evento: {str(e)}", 'danger')
+        
+    return redirect('/eventos')
 
 ## MAIN ##
 if __name__ == '__main__':

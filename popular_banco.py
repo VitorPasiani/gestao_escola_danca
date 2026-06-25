@@ -110,6 +110,33 @@ def popular_banco_seed():
         ]
         cursor.executemany("INSERT INTO despesas (descricao, tipo_despesa, valor, data_vencimento, mes_referencia, status_pagamento) VALUES (?, ?, ?, ?, ?, ?)", despesas)
 
+        # ==========================================
+        # 8. EVENTOS E FINANCEIRO DE EVENTOS
+        # ==========================================
+        eventos = [
+            ("Festival de Inverno 2026", "2026-07-20"),
+            ("Mostra de Dança Infantil", "2026-10-12")
+        ]
+        cursor.executemany("INSERT INTO eventos (nome_evento, data_evento) VALUES (?, ?)", eventos)
+
+        transacoes_eventos = [
+            # Transações do Evento 1 (Festival de Inverno)
+            (1, "Patrocínio Empresa Local", "Entrada", 1500.00),
+            (1, "Venda de Ingressos (Lote 1)", "Entrada", 3500.00),
+            (1, "Aluguel do Teatro", "Saida", 2000.00),
+            (1, "Figurinos e Cenário", "Saida", 1200.00),
+            
+            # Transações do Evento 2 (Mostra Infantil)
+            (2, "Venda de Ingressos", "Entrada", 2000.00),
+            (2, "Decoração e Iluminação", "Saida", 600.00)
+        ]
+        cursor.executemany('''
+            INSERT INTO financeiro_eventos (id_evento, descricao, tipo, valor) 
+            VALUES (?, ?, ?, ?)
+        ''', transacoes_eventos)
+
+        cursor.execute('UPDATE saldos_caixa SET saldo_eventos = 3200.00 WHERE id_saldo = 1')
+
         conexao.commit()
         print("✅ Banco de dados populado com sucesso! A despensa está cheia de dados reais.")
 

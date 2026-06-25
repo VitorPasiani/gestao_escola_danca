@@ -1,0 +1,82 @@
+{% extends 'base.html' %}
+{% block titulo %}Gestão de Eventos - ATO Espaço de Dança{% endblock %}
+
+{% block conteudo %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="mb-0">🎭 Gestão de Projetos e Eventos</h2>
+        <small class="text-muted">Acompanhe festivais, mostras e festas com caixas independentes.</small>
+    </div>
+    <button type="button" class="btn badge-ato shadow-sm px-4" data-bs-toggle="modal" data-bs-target="#modalNovoEvento">
+        + Criar Novo Evento
+    </button>
+</div>
+
+<div class="card shadow-sm border-0" style="border-radius: 12px;">
+    <div class="card-body">
+        <table class="table table-hover tabela-datatable">
+            <thead class="table-light">
+                <tr>
+                    <th>Nome do Evento</th>
+                    <th>Data Alvo</th>
+                    <th class="text-center">Status</th>
+                    <th class="text-center">Ações / Financeiro</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for evento in lista_eventos %}
+                <tr>
+                    <td class="fw-bold">{{ evento.nome_evento }}</td>
+                    <td>{{ evento.data_evento[8:10] }}/{{ evento.data_evento[5:7] }}/{{ evento.data_evento[0:4] }}</td>
+                    <td class="text-center">
+                        {% if evento.status == 'Encerrado' %}
+                            <span class="badge bg-secondary">🔒 Encerrado</span>
+                        {% else %}
+                            <span class="badge bg-success">🟢 Em Andamento</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-center">
+                        <a href="/painel_evento/{{ evento.id_evento }}" class="btn btn-sm btn-outline-primary shadow-sm">
+                            📊 Acessar Painel
+                        </a>
+                        
+                        {% if evento.status == 'Aberto' %}
+                        <a href="/deletar_evento/{{ evento.id_evento }}" class="btn btn-sm btn-outline-danger shadow-sm ms-1" onclick="return confirm('Atenção: Tem certeza que deseja excluir este evento definitivamente?');">
+                            🗑️ Deletar Evento
+                        </a>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="modal fade" id="modalNovoEvento" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header card-header-ato text-white">
+                <h5 class="modal-title">Novo Evento</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <form action="/eventos" method="POST" autocomplete="off">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Nome do Projeto/Evento*</label>
+                        <input type="text" name="nome_evento" class="form-control" placeholder="Ex: Festival de Inverno 2026" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Data Principal*</label>
+                        <input type="date" name="data_evento" class="form-control" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn badge-ato" onclick="if(this.form.checkValidity()){ this.disabled=true; this.form.submit(); } else { this.form.reportValidity(); }">Criar Evento</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

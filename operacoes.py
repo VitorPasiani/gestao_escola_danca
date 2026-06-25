@@ -790,7 +790,7 @@ def atualizar_evento(id_evento, **kwargs):
 def listar_eventos():
     conexao, cursor = conectar_banco()
 
-    cursor.execute('SELECT id_evento, nome_evento, data_evento FROM eventos ORDER BY nome_evento ASC')
+    cursor.execute('SELECT id_evento, nome_evento, data_evento, status FROM eventos ORDER BY nome_evento ASC')
     eventos_banco = cursor.fetchall()
     conexao.close()
 
@@ -799,7 +799,8 @@ def listar_eventos():
         lista_eventos.append({
             "id_evento": e[0],
             "nome_evento": e[1],
-            "data_evento": e[2]
+            "data_evento": e[2],
+            "status": e[3] if e[3] else "Aberto"
         })
             
     return lista_eventos
@@ -819,6 +820,13 @@ def deletar_evento(id_evento):
 def cadastrar_transacao_evento(id_evento, descricao, tipo, valor):
     conexao, cursor = conectar_banco()
 
+    cursor.execute("SELECT status, nome_evento FROM eventos WHERE id_evento = ?", (id_evento,))
+    evento = cursor.fetchone()
+    
+    if evento[0] == 'Encerrado':
+        conexao.close()
+        raise ValueError("Este evento já foi encerrado. Não é possível adicionar novas transações.")
+
     sql = '''
         INSERT INTO financeiro_eventos (id_evento, descricao, tipo, valor)
         VALUES (?, ?, ?, ?)
@@ -827,7 +835,108 @@ def cadastrar_transacao_evento(id_evento, descricao, tipo, valor):
     conexao.commit()
     conexao.close()
     
+    registrar_movimentacao_caixa('Eventos', tipo, valor, f"{evento[1]}: {descricao}")
+    
     return "Transação do evento registrada!"
+
+def deletar_transacao_evento(id_transacao, id_evento):
+    conexao, cursor = conectar_banco()
+    
+    try:
+        cursor.execute("SELECT status, nome_evento FROM eventos WHERE id_evento = ?", (id_evento,))
+        evento = cursor.fetchone()
+        
+        if evento[0] == 'Encerrado':
+            return "Ação bloqueada! Não é possível excluir lançamentos de um evento já encerrado.", "danger"
+
+        cursor.execute("SELECT descricao, tipo, valor FROM financeiro_eventos WHERE id_transacao_evento = ?", (id_transacao,))
+        transacao = cursor.fetchone()
+        
+        if transacao:
+            desc_trans, tipo_trans, valor_trans = transacao
+            
+            cursor.execute("DELETE FROM financeiro_eventos WHERE id_transacao_evento = ?", (id_transacao,))
+            conexao.commit()
+            
+            tipo_estorno = 'Saida' if tipo_trans == 'Entrada' else 'Entrada'
+            registrar_movimentacao_caixa('Eventos', tipo_estorno, valor_trans, f"ESTORNO ({evento[1]}): {desc_trans}")
+
+        return "Lançamento excluído com sucesso!", "warning"
+        
+    except Exception as e:
+        conexao.rollback()
+        return f"Erro ao excluir transação: {str(e)}", "danger"
+    finally:
+        conexao.close()
+
+def buscar_balanco_evento(id_evento):
+    conexao, cursor = conectar_banco()
+    
+    # Busca todas as transações
+    cursor.execute("SELECT id_transacao_evento, descricao, tipo, valor FROM financeiro_eventos WHERE id_evento = ?", (id_evento,))
+    transacoes = cursor.fetchall()
+    
+    # Busca status e nome
+    cursor.execute("SELECT nome_evento, status FROM eventos WHERE id_evento = ?", (id_evento,))
+    dados_evento = cursor.fetchone()
+    conexao.close()
+    
+    total_entradas = 0.0
+    total_saidas = 0.0
+    lista_transacoes = []
+    
+    for t in transacoes:
+        id_trans, desc, tipo, valor = t
+        lista_transacoes.append({
+            "id": id_trans, "descricao": desc, "tipo": tipo, "valor": valor
+        })
+        if tipo == 'Entrada':
+            total_entradas += valor
+        else:
+            total_saidas += valor
+            
+    saldo_final = total_entradas - total_saidas
+    
+    return {
+        "nome_evento": dados_evento[0] if dados_evento else "Evento Desconhecido",
+        "status": dados_evento[1] if dados_evento else "Aberto",
+        "transacoes": lista_transacoes,
+        "total_entradas": total_entradas,
+        "total_saidas": total_saidas,
+        "saldo_final": saldo_final
+    }
+
+def encerrar_evento_e_transferir_saldo(id_evento):
+    conexao, cursor = conectar_banco()
+    
+    try:
+        cursor.execute("SELECT nome_evento, status FROM eventos WHERE id_evento = ?", (id_evento,))
+        evento = cursor.fetchone()
+        
+        if not evento or evento[1] == 'Encerrado':
+            return "O evento não existe ou já foi encerrado.", "warning"
+            
+        nome_evento = evento[0]
+
+        cursor.execute("SELECT tipo, valor FROM financeiro_eventos WHERE id_evento = ?", (id_evento,))
+        transacoes = cursor.fetchall()
+        saldo = sum([t[1] if t[0] == 'Entrada' else -t[1] for t in transacoes])
+        
+        cursor.execute("UPDATE eventos SET status = 'Encerrado' WHERE id_evento = ?", (id_evento,))
+        conexao.commit()
+        
+        if saldo > 0:
+            registrar_movimentacao_caixa('Eventos', 'Transferencia', saldo, f"Repasse de Lucro: {nome_evento}", caixa_destino='Operacional')
+        elif saldo < 0:
+            registrar_movimentacao_caixa('Operacional', 'Transferencia', abs(saldo), f"Cobertura de Prejuízo: {nome_evento}", caixa_destino='Eventos')
+            
+        return f"Evento encerrado com sucesso! Saldo transferido.", "success"
+        
+    except Exception as e:
+        conexao.rollback()
+        return f"Erro ao encerrar evento: {str(e)}", "danger"
+    finally:
+        conexao.close()
 
 
 ##### AULAS AVULSAS ######
@@ -1057,6 +1166,64 @@ def buscar_itens_fatura(id_fatura):
         
     return lista_itens
 
+def baixar_fatura_unificada(id_fatura, usar_maquininha=False, taxa_maquininha=0.0):
+    conexao, cursor = conectar_banco()
+
+    try:
+        hoje_str = datetime.now().strftime("%d/%m/%Y")
+
+        cursor.execute("SELECT status FROM faturas WHERE id_fatura = ?", (id_fatura,))
+        resultado = cursor.fetchone()
+        
+        if not resultado or resultado[0] == 'Pago':
+            return "Aviso: Esta fatura já se encontra paga ou não existe.", "warning"
+
+        sql_itens = '''
+            SELECT p.id_pagamento, p.valor_final, t.tipo_gestao
+            FROM pagamentos p
+            JOIN turmas t ON p.id_turma = t.id_turma
+            WHERE p.id_fatura = ?
+        '''
+        cursor.execute(sql_itens, (id_fatura,))
+        itens_fatura = cursor.fetchall()
+
+        lucro_liquido_escola = 0.0
+        taxa_decimal = taxa_maquininha if usar_maquininha else 0.0
+
+        for item in itens_fatura:
+            id_pagamento, valor_final_item, tipo_gestao = item
+
+            valor_pos_taxa = valor_final_item - (valor_final_item * taxa_decimal)
+
+            repasse_prof = 0.0
+            if tipo_gestao == 'Parceiro':
+                repasse_prof = valor_pos_taxa * 0.75
+            
+            lucro_liquido_escola += (valor_pos_taxa - repasse_prof)
+
+            cursor.execute('''
+                UPDATE pagamentos
+                SET status = 'Pago', data_pagamento = ?, taxa_maquininha = ?
+                WHERE id_pagamento = ?
+            ''', (hoje_str, taxa_decimal, id_pagamento))
+
+        cursor.execute('''
+            UPDATE faturas
+            SET status = 'Pago', data_pagamento = ?, taxa_maquininha = ?
+            WHERE id_fatura = ?
+        ''', (hoje_str, taxa_decimal, id_fatura))
+
+        cursor.execute('UPDATE saldos_caixa SET saldo_principal = saldo_principal + ? WHERE id_saldo = 1', (lucro_liquido_escola,))
+
+        conexao.commit()
+        return f"Pagamento registrado com sucesso! R$ {lucro_liquido_escola:.2f} transferidos para o Caixa Principal.", "success"
+
+    except Exception as e:
+        conexao.rollback()
+        return f"Erro ao processar o pagamento: {str(e)}", "danger"
+    finally:
+        conexao.close()
+
 def deletar_pagamento(id_pagamento):
     conexao, cursor = conectar_banco()
 
@@ -1089,9 +1256,34 @@ def processar_fechamento_mensal(mes_referencia):
     cursor.execute(sql_particulares)
     particulares = cursor.fetchall()
 
+    ref_mes, ref_ano = map(int, mes_referencia.split('/'))
+    data_ref_comparacao = datetime(ref_ano, ref_mes, 1)
+
+    regulares_filtrados = []
+    for reg in regulares:
+        id_aluno, id_turma, valor, data_inscricao = reg
+        if data_inscricao:
+            _, insc_mes, insc_ano = map(int, data_inscricao.split('/'))
+            data_insc_comparacao = datetime(insc_ano, insc_mes, 1)
+            
+            if data_ref_comparacao < data_insc_comparacao:
+                continue 
+        regulares_filtrados.append(reg)
+
+    particulares_filtrados = []
+    for part in particulares:
+        id_aluno, id_turma, id_freq, valor, data_inscricao = part
+        if data_inscricao:
+            _, insc_mes, insc_ano = map(int, data_inscricao.split('/'))
+            data_insc_comparacao = datetime(insc_ano, insc_mes, 1)
+            
+            if data_ref_comparacao < data_insc_comparacao:
+                continue
+        particulares_filtrados.append(part)
+
     alunos_fatura = {}
     
-    for reg in regulares:
+    for reg in regulares_filtrados:
         id_aluno, id_turma, valor, data_inscricao = reg
         if id_aluno not in alunos_fatura:
             dia_vencimento = data_inscricao.split('/')[0] if data_inscricao else '10'
@@ -1099,7 +1291,7 @@ def processar_fechamento_mensal(mes_referencia):
             
         alunos_fatura[id_aluno]['regulares'].append({'id_turma': id_turma, 'valor': valor})
 
-    for part in particulares:
+    for part in particulares_filtrados:
         id_aluno, id_turma, id_freq, valor, data_inscricao = part
         if id_aluno not in alunos_fatura:
             dia_vencimento = data_inscricao.split('/')[0] if data_inscricao else '10'
@@ -1309,13 +1501,41 @@ def gerar_relatorio_dre(mes_referencia, despesas_fixas=0.0, retencao_caixa=0.0):
 
 def consultar_saldos():
     conexao, cursor = conectar_banco()
-    cursor.execute('SELECT saldo_principal, saldo_matriculas, saldo_avulsas, saldo_reserva FROM saldos_caixa WHERE id_saldo = 1')
+    cursor.execute('SELECT saldo_principal, saldo_matriculas, saldo_avulsas, saldo_eventos, saldo_reserva FROM saldos_caixa WHERE id_saldo = 1')
     resultado = cursor.fetchone()
     conexao.close()
     
     if resultado:
-        return {"Principal": resultado[0], "Matriculas": resultado[1], "Avulsas": resultado[2], "Reserva": resultado[3]}
-    return {"Principal": 0.0, "Matriculas": 0.0, "Avulsas": 0.0, "Reserva": 0.0}
+        return {
+            "Principal": resultado[0], 
+            "Matriculas": resultado[1], 
+            "Avulsas": resultado[2], 
+            "Eventos": resultado[3], 
+            "Reserva": resultado[4]
+        }
+    return {"Principal": 0.0, "Matriculas": 0.0, "Avulsas": 0.0, "Eventos": 0.0, "Reserva": 0.0}
+
+def listar_movimentacoes_caixa():
+    conexao, cursor = conectar_banco()
+    cursor.execute('''
+        SELECT caixa_alvo, tipo_movimentacao, valor, descricao, data_movimentacao, caixa_destino_transferencia 
+        FROM movimentacoes_caixa 
+        ORDER BY id_movimentacao DESC LIMIT 100
+    ''')
+    resultados = cursor.fetchall()
+    conexao.close()
+    
+    historico = []
+    for r in resultados:
+        historico.append({
+            "caixa_alvo": r[0],
+            "tipo": r[1],
+            "valor": r[2],
+            "descricao": r[3],
+            "data": r[4],
+            "caixa_destino": r[5] if r[5] else "-"
+        })
+    return historico
 
 def registrar_saque(caixa_origem, descricao, valor):
     conexao, cursor = conectar_banco()
@@ -1343,21 +1563,62 @@ def registrar_saque(caixa_origem, descricao, valor):
     conexao.close()
     return f"Saque de R$ {valor:.2f} registrado com sucesso!", "success"
 
-def listar_historico_saques():
+def registrar_movimentacao_caixa(caixa_nome, tipo, valor, descricao, caixa_destino=None):
+    """
+    Motor Central Financeiro:
+    caixa_nome: 'Operacional', 'Matriculas', 'Avulsas', 'Eventos', 'Reserva'
+    tipo: 'Entrada', 'Saida', 'Transferencia'
+    """
     conexao, cursor = conectar_banco()
-    cursor.execute('SELECT caixa_origem, descricao, valor, data_saque FROM historico_saques ORDER BY id_saque DESC LIMIT 50')
-    resultados = cursor.fetchall()
-    conexao.close()
+    hoje = datetime.now().strftime("%d/%m/%Y %H:%M")
     
-    historico = []
-    for r in resultados:
-        historico.append({
-            "caixa": r[0],
-            "descricao": r[1],
-            "valor": r[2],
-            "data": r[3]
-        })
-    return historico
+    # Mapeamento de colunas para o SQL dinâmico
+    mapa_colunas = {
+        'Operacional': 'saldo_principal',
+        'Matriculas': 'saldo_matriculas',
+        'Avulsas': 'saldo_avulsas',
+        'Eventos': 'saldo_eventos',
+        'Reserva': 'saldo_reserva'
+    }
+
+    try:
+        coluna_origem = mapa_colunas[caixa_nome]
+        
+        # 1. Se for SAÍDA ou TRANSFERÊNCIA, checar saldo
+        if tipo in ['Saida', 'Transferencia']:
+            cursor.execute(f"SELECT {coluna_origem} FROM saldos_caixa WHERE id_saldo = 1")
+            saldo_atual = cursor.fetchone()[0]
+            if valor > saldo_atual:
+                return f"Saldo insuficiente no Caixa {caixa_nome}!", "danger"
+
+        # 2. Executar a atualização de Saldo
+        if tipo == 'Entrada':
+            cursor.execute(f"UPDATE saldos_caixa SET {coluna_origem} = {coluna_origem} + ? WHERE id_saldo = 1", (valor,))
+        
+        elif tipo == 'Saida':
+            cursor.execute(f"UPDATE saldos_caixa SET {coluna_origem} = {coluna_origem} - ? WHERE id_saldo = 1", (valor,))
+        
+        elif tipo == 'Transferencia' and caixa_destino:
+            coluna_destino = mapa_colunas[caixa_destino]
+            # Tira de um
+            cursor.execute(f"UPDATE saldos_caixa SET {coluna_origem} = {coluna_origem} - ? WHERE id_saldo = 1", (valor,))
+            # Põe no outro
+            cursor.execute(f"UPDATE saldos_caixa SET {coluna_destino} = {coluna_destino} + ? WHERE id_saldo = 1", (valor,))
+        
+        # 3. Registrar no Histórico Unificado
+        sql_hist = '''
+            INSERT INTO movimentacoes_caixa (caixa_alvo, tipo_movimentacao, valor, descricao, data_movimentacao, caixa_destino_transferencia)
+            VALUES (?, ?, ?, ?, ?, ?)
+        '''
+        cursor.execute(sql_hist, (caixa_nome, tipo, valor, descricao, hoje, caixa_destino))
+        
+        conexao.commit()
+        return "Movimentação realizada com sucesso!", "success"
+    except Exception as e:
+        conexao.rollback()
+        return f"Erro financeiro: {str(e)}", "danger"
+    finally:
+        conexao.close()
 
 def cadastrar_despesa(descricao, tipo, valor, vencimento, mes_ref):
     conexao, cursor = conectar_banco()
@@ -1438,6 +1699,7 @@ def listar_despesas(mes_referencia):
 def quitar_despesa(id_despesa):
     conexao, cursor = conectar_banco()
     
+    # 1. Busca os dados da despesa
     cursor.execute("SELECT valor, descricao, status_pagamento FROM despesas WHERE id_despesa = ?", (id_despesa,))
     res = cursor.fetchone()
     
@@ -1446,35 +1708,29 @@ def quitar_despesa(id_despesa):
         return "Erro: Despesa não encontrada.", "danger"
     
     valor_despesa, descricao, status_atual = res
-    
+    conexao.close() # Fechamos aqui para não dar conflito, pois a função abaixo abrirá outra
+
     if status_atual == 'Pago':
-        conexao.close()
         return "Esta despesa já foi baixada anteriormente.", "warning"
 
-    cursor.execute("SELECT saldo_principal FROM saldos_caixa WHERE id_saldo = 1")
-    saldo_principal = cursor.fetchone()[0]
-    
-    if valor_despesa > saldo_principal:
-        conexao.close()
-        return f"Saldo insuficiente no Caixa Principal (R$ {saldo_principal:.2f}) para pagar R$ {valor_despesa:.2f}.", "danger"
-    
-    try:
-        cursor.execute("UPDATE saldos_caixa SET saldo_principal = saldo_principal - ? WHERE id_saldo = 1", (valor_despesa,))
-        
-        data_hoje = datetime.now().strftime("%d/%m/%Y %H:%M")
-        sql_historico = "INSERT INTO historico_saques (caixa_origem, descricao, valor, data_saque) VALUES (?, ?, ?, ?)"
-        cursor.execute(sql_historico, ("Principal", f"Pagto Despesa: {descricao}", valor_despesa, data_hoje))
-        
+    # 2. USA O MOTOR CENTRAL (registrar_movimentacao_caixa)
+    # Isso já garante: Checagem de Saldo + Baixa no Saldo + Registro no Livro Diário
+    mensagem, categoria = registrar_movimentacao_caixa(
+        caixa_nome='Operacional', 
+        tipo='Saida', 
+        valor=valor_despesa, 
+        descricao=f"Pagto Despesa: {descricao}"
+    )
+
+    # 3. Se o motor deu ok, atualiza o status da despesa para 'Pago'
+    if categoria == 'success':
+        conexao, cursor = conectar_banco()
         cursor.execute("UPDATE despesas SET status_pagamento = 'Pago' WHERE id_despesa = ?", (id_despesa,))
-        
         conexao.commit()
-        return f"Despesa '{descricao}' paga com sucesso! Valor debitado do Caixa Principal.", "success"
-        
-    except Exception as e:
-        conexao.rollback()
-        return f"Erro técnico ao processar pagamento: {str(e)}", "danger"
-    finally:
         conexao.close()
+        return f"Despesa '{descricao}' paga com sucesso! Registrada no Livro Diário.", "success"
+    else:
+        return mensagem, categoria
 
 def atualizar_despesa(id_despesa, descricao, tipo_despesa, valor, data_vencimento, mes_referencia):
     conexao, cursor = conectar_banco()
