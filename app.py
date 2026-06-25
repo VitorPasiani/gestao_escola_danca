@@ -63,6 +63,7 @@ from operacoes import (
     cadastrar_evento,
     listar_eventos,
     deletar_evento,
+    atualizar_evento,
     cadastrar_transacao_evento,
     deletar_transacao_evento,
     buscar_balanco_evento,
@@ -793,6 +794,19 @@ def pagina_eventos():
 
     lista = listar_eventos()
     return render_template('listar_eventos.html', lista_eventos=lista)
+
+@app.route('/editar_evento/<int:id_evento>', methods=['POST'])
+def rota_editar_evento(id_evento):
+    nome_evento = request.form.get('nome_evento')
+    data_evento = request.form.get('data_evento')
+    
+    try:
+        mensagem = atualizar_evento(id_evento, nome_evento=nome_evento, data_evento=data_evento)
+        flash(mensagem, 'success')
+    except Exception as e:
+        flash(f"Erro ao editar evento: {str(e)}", 'danger')
+        
+    return redirect('/eventos')
 
 @app.route('/painel_evento/<int:id_evento>')
 def painel_evento(id_evento):

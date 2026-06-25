@@ -41,9 +41,13 @@
                         </a>
                         
                         {% if evento.status == 'Aberto' %}
-                        <a href="/deletar_evento/{{ evento.id_evento }}" class="btn btn-sm btn-outline-danger shadow-sm ms-1" onclick="return confirm('Atenção: Tem certeza que deseja excluir este evento definitivamente?');">
-                            🗑️ Deletar Evento
-                        </a>
+                            <button type="button" class="btn btn-sm btn-outline-warning shadow-sm ms-1" data-bs-toggle="modal" data-bs-target="#modalEditarEvento{{ evento.id_evento }}" title="Editar Evento">
+                                ✏️
+                            </button>
+
+                            <a href="/deletar_evento/{{ evento.id_evento }}" class="btn btn-sm btn-outline-danger shadow-sm ms-1" onclick="return confirm('Atenção: Tem certeza que deseja excluir este evento definitivamente?');">
+                                🗑️
+                            </a>
                         {% endif %}
                     </td>
                 </tr>
@@ -79,4 +83,36 @@
         </div>
     </div>
 </div>
+
+{% for evento in lista_eventos %}
+    {% if evento.status == 'Aberto' %}
+    <div class="modal fade" id="modalEditarEvento{{ evento.id_evento }}" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content text-start">
+                <div class="modal-header card-header-ato text-white">
+                    <h5 class="modal-title">Editar Evento</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <form action="/editar_evento/{{ evento.id_evento }}" method="POST" autocomplete="off">
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Nome do Evento*</label>
+                            <input type="text" name="nome_evento" class="form-control" value="{{ evento.nome_evento }}" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Data Principal*</label>
+                            <input type="date" name="data_evento" class="form-control" value="{{ evento.data_evento }}" required>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="submit" class="btn badge-ato" onclick="if(this.form.checkValidity()){ this.disabled=true; this.form.submit(); } else { this.form.reportValidity(); }">Salvar Alterações</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+{% endfor %}
+
 {% endblock %}
