@@ -739,14 +739,24 @@ def faturar_aulas_selecionadas(ids_frequencias, taxa_maquininha=0.0):
 def quitar_taxa_matricula(id_inscricao, usar_maquininha=False, taxa_maquininha=0.0):
     conexao, cursor = conectar_banco()
 
-    cursor.execute("UPDATE inscricoes SET status_pagamento_matricula = 'Pago' WHERE id_inscricao = ?", (id_inscricao,))
-
+    # 1. Calculamos o valor líquido que vai para o caixa
     valor_base = 100.0
     if usar_maquininha and taxa_maquininha > 0:
         valor_liquido = valor_base - (valor_base * taxa_maquininha)
+        taxa_salvar = taxa_maquininha # Guardamos a porcentagem exata
     else:
         valor_liquido = valor_base
+        taxa_salvar = 0.0 # Sem taxa (Dinheiro ou Pix)
 
+    # 2. Atualiza a inscrição gravando que foi paga E a taxa da maquininha
+    cursor.execute('''
+        UPDATE inscricoes 
+        SET status_pagamento_matricula = 'Pago',
+            taxa_maquininha = ?
+        WHERE id_inscricao = ?
+    ''', (taxa_salvar, id_inscricao))
+
+    # 3. Atualiza o saldo do Caixa Matrículas
     cursor.execute('UPDATE saldos_caixa SET saldo_matriculas = saldo_matriculas + ? WHERE id_saldo = 1', (valor_liquido,))
 
     conexao.commit()
@@ -1443,62 +1453,7 @@ def executar_limpeza_inadimplentes():
         
     return f"Limpeza concluída! {contador} alunos foram inativados por inadimplência."
 
-##### FINACEIRO #####
-def gerar_relatorio_dre(mes_referencia, despesas_fixas=0.0, retencao_caixa=0.0):
-    conexao, cursor = conectar_banco()
-    
-    sql_mensalidades = '''
-        SELECT SUM(p.valor_final) 
-        FROM pagamentos p 
-        WHERE p.mes_referencia = ? AND p.status = 'Pago'
-    '''
-    cursor.execute(sql_mensalidades, (mes_referencia,))
-    receita_mensalidades = cursor.fetchone()[0] or 0.0
-    
-    sql_repasses = '''
-        SELECT SUM((p.valor_final - (p.valor_final * IFNULL(p.taxa_maquininha, 0.0))) * 0.75) 
-        FROM pagamentos p
-        JOIN turmas t ON p.id_turma = t.id_turma
-        WHERE p.mes_referencia = ? AND p.status = 'Pago' AND t.tipo_gestao = 'Parceiro'
-    '''
-    cursor.execute(sql_repasses, (mes_referencia,))
-    repasse_mensalidades = cursor.fetchone()[0] or 0.0
-
-    busca_mes = f"%{mes_referencia}" 
-    sql_avulsas = '''
-        SELECT SUM(lucro_caixa_avulso), SUM(repasse_prof)
-        FROM aulas_avulsas
-        WHERE data_aula LIKE ?
-    '''
-    cursor.execute(sql_avulsas, (busca_mes,))
-    res_avulsas = cursor.fetchone()
-    lucro_escola_avulsas = res_avulsas[0] or 0.0
-    repasse_prof_avulsas = res_avulsas[1] or 0.0
-    
-    conexao.close()
-
-    receita_total_avulsas = lucro_escola_avulsas + repasse_prof_avulsas
-    receita_bruta_total = receita_mensalidades + receita_total_avulsas
-    
-    total_repasses = repasse_mensalidades + repasse_prof_avulsas
-    receita_liquida_escola = receita_bruta_total - total_repasses
-    
-    lucro_operacional = receita_liquida_escola - despesas_fixas
-    
-    valor_distribuir = lucro_operacional - retencao_caixa
-    repasse_socias = valor_distribuir / 2 if valor_distribuir > 0 else 0.0
-
-    return {
-        "mes_referencia": mes_referencia,
-        "receita_bruta": receita_bruta_total,
-        "total_repasses": total_repasses,
-        "receita_liquida_escola": receita_liquida_escola,
-        "despesas_fixas": despesas_fixas,
-        "lucro_operacional": lucro_operacional,
-        "retencao_caixa": retencao_caixa,
-        "repasse_socias": repasse_socias
-    }
-
+##### FINANCEIRO #####
 def consultar_saldos():
     conexao, cursor = conectar_banco()
     cursor.execute('SELECT saldo_principal, saldo_matriculas, saldo_avulsas, saldo_eventos, saldo_reserva FROM saldos_caixa WHERE id_saldo = 1')
@@ -1750,3 +1705,446 @@ def excluir_despesa(id_despesa):
     conexao.commit()
     conexao.close()
     return "Despesa excluída do painel!"
+
+def dre_analitico_mensalidades(mes_referencia):
+    conexao, cursor = conectar_banco()
+    
+    # Nossa query faz um JOIN triplo: Fatura -> Aluno -> Pagamentos(Itens) -> Turmas
+    sql = '''
+        SELECT 
+            a.nome AS aluno,
+            f.data_pagamento,
+            GROUP_CONCAT(t.nome_turma, ' + ') AS itens_pagos,
+            f.valor_final
+        FROM faturas f
+        JOIN alunos a ON f.id_aluno = a.id_aluno
+        JOIN pagamentos p ON p.id_fatura = f.id_fatura
+        JOIN turmas t ON p.id_turma = t.id_turma
+        WHERE f.mes_referencia = ? AND f.status = 'Pago'
+        GROUP BY f.id_fatura, a.nome, f.data_pagamento, f.valor_final
+        ORDER BY f.data_pagamento ASC
+    '''
+    cursor.execute(sql, (mes_referencia,))
+    resultados = cursor.fetchall()
+    conexao.close()
+    
+    lista_mensalidades = []
+    total_mensalidades = 0.0
+    
+    # Montamos o dicionário para o Jinja2 ler facilmente lá no HTML
+    for r in resultados:
+        aluno, data_pagamento, itens_pagos, valor_final = r
+        
+        lista_mensalidades.append({
+            "aluno": aluno,
+            "data_pagamento": data_pagamento,
+            "itens_pagos": itens_pagos,  # Vai sair algo como "Ballet + Jazz"
+            "valor_final": valor_final
+        })
+        
+        total_mensalidades += valor_final # Já somamos o total aqui para o cabeçalho da sanfona
+        
+    return {
+        "lista": lista_mensalidades,
+        "total": total_mensalidades
+    }
+
+def dre_analitico_matriculas(mes_referencia):
+    conexao, cursor = conectar_banco()
+    
+    # Fazemos um JOIN com alunos para pegar o nome. 
+    # Usamos LIKE '%' || ? para casar o mês/ano (ex: '%04/2026') com a data_inscricao (DD/MM/AAAA)
+    sql = '''
+        SELECT 
+            a.nome AS aluno,
+            i.data_inscricao,
+            100.0 AS valor_bruto
+        FROM inscricoes i
+        JOIN alunos a ON i.id_aluno = a.id_aluno
+        WHERE i.status_pagamento_matricula = 'Pago'
+          AND i.data_inscricao LIKE '%' || ?
+        ORDER BY i.data_inscricao ASC
+    '''
+    cursor.execute(sql, (mes_referencia,))
+    resultados = cursor.fetchall()
+    conexao.close()
+    
+    lista_matriculas = []
+    total_matriculas = 0.0
+    
+    for r in resultados:
+        aluno, data_inscricao, valor = r
+        lista_matriculas.append({
+            "aluno": aluno,
+            "data": data_inscricao,
+            "valor": valor
+        })
+        total_matriculas += valor
+        
+    return {
+        "lista": lista_matriculas,
+        "total": total_matriculas
+    }
+
+def dre_analitico_avulsas(mes_referencia):
+    conexao, cursor = conectar_banco()
+    
+    # Busca direta na tabela de aulas avulsas, juntando com professores para pegar o nome
+    sql = '''
+        SELECT 
+            a.aluno_nome AS aluno,
+            p.nome AS professor,
+            a.data_aula,
+            a.valor_total_aula_avulsa AS valor_bruto
+        FROM aulas_avulsas a
+        LEFT JOIN professores p ON a.id_professor = p.id_professor
+        WHERE a.data_aula LIKE '%' || ?
+        ORDER BY a.data_aula ASC
+    '''
+    cursor.execute(sql, (mes_referencia,))
+    resultados = cursor.fetchall()
+    conexao.close()
+    
+    lista_avulsas = []
+    total_avulsas = 0.0
+    
+    for r in resultados:
+        aluno, professor, data_aula, valor_bruto = r
+        
+        lista_avulsas.append({
+            "aluno": aluno,
+            "professor": professor or "Não informado",
+            "data": data_aula,
+            "valor": valor_bruto
+        })
+        
+        total_avulsas += valor_bruto
+        
+    return {
+        "lista": lista_avulsas,
+        "total": total_avulsas
+    }
+
+def dre_analitico_particulares_adhoc(mes_referencia):
+    conexao, cursor = conectar_banco()
+    
+    # Buscamos na tabela pagamentos, mas APENAS os que não têm fatura e são de turmas particulares
+    sql = '''
+        SELECT 
+            a.nome AS aluno,
+            t.nome_turma,
+            p.data_pagamento,
+            p.valor_final AS valor_bruto
+        FROM pagamentos p
+        JOIN alunos a ON p.id_aluno = a.id_aluno
+        JOIN turmas t ON p.id_turma = t.id_turma
+        WHERE p.mes_referencia = ? 
+          AND p.status = 'Pago'
+          AND p.id_fatura IS NULL
+          AND t.is_particular = 1
+        ORDER BY p.data_pagamento ASC
+    '''
+    cursor.execute(sql, (mes_referencia,))
+    resultados = cursor.fetchall()
+    conexao.close()
+    
+    lista_adhoc = []
+    total_adhoc = 0.0
+    
+    for r in resultados:
+        aluno, nome_turma, data_pagamento, valor_bruto = r
+        
+        lista_adhoc.append({
+            "aluno": aluno,
+            "turma": nome_turma, # Para o DRE, vamos exibir como se fosse o professor/turma
+            "data": data_pagamento,
+            "valor": valor_bruto
+        })
+        
+        total_adhoc += valor_bruto
+        
+    return {
+        "lista": lista_adhoc,
+        "total": total_adhoc
+    }
+
+def dre_analitico_despesas(mes_referencia):
+    conexao, cursor = conectar_banco()
+    
+    # Buscamos apenas as despesas ativas e já pagas do mês de referência
+    sql = '''
+        SELECT 
+            descricao,
+            data_vencimento,
+            tipo_despesa,
+            valor
+        FROM despesas
+        WHERE mes_referencia = ? 
+          AND status_pagamento = 'Pago'
+          AND ativo = 1
+        ORDER BY data_vencimento ASC
+    '''
+    cursor.execute(sql, (mes_referencia,))
+    resultados = cursor.fetchall()
+    conexao.close()
+    
+    lista_despesas = []
+    total_despesas = 0.0
+    
+    for r in resultados:
+        descricao, data_vencimento, tipo_despesa, valor = r
+        
+        lista_despesas.append({
+            "descricao": descricao,
+            "data": data_vencimento or "Sem data",
+            "tipo": tipo_despesa, # Vai trazer 'Fixa' ou 'Variável'
+            "valor": valor
+        })
+        
+        total_despesas += valor
+        
+    return {
+        "lista": lista_despesas,
+        "total": total_despesas
+    }
+
+def dre_analitico_eventos(mes_referencia):
+    conexao, cursor = conectar_banco()
+    
+    # Buscamos as transferências de encerramento de evento no mês
+    sql = '''
+        SELECT 
+            descricao,
+            data_movimentacao,
+            valor,
+            caixa_alvo
+        FROM movimentacoes_caixa
+        WHERE tipo_movimentacao = 'Transferencia'
+          AND data_movimentacao LIKE '%' || ? || '%'
+          AND (
+              (caixa_alvo = 'Eventos' AND caixa_destino_transferencia = 'Operacional') 
+              OR 
+              (caixa_alvo = 'Operacional' AND caixa_destino_transferencia = 'Eventos')
+          )
+        ORDER BY data_movimentacao ASC
+    '''
+    cursor.execute(sql, (mes_referencia,))
+    resultados = cursor.fetchall()
+    conexao.close()
+    
+    lista_eventos = []
+    total_eventos = 0.0 # Positivo é lucro, negativo é prejuízo
+    
+    for r in resultados:
+        descricao, data_mov, valor, caixa_origem = r
+        
+        # Se a origem foi o caixa de Eventos, significa que sobrou dinheiro (Lucro)
+        # Se a origem foi o Operacional, significa que a escola teve que tirar dinheiro para cobrir o rombo (Prejuízo)
+        is_lucro = (caixa_origem == 'Eventos')
+        valor_real = valor if is_lucro else -valor
+        
+        # Limpando a string para pegar só o nome do evento 
+        # (Ex: transforma "Repasse de Lucro: Festival de Inverno" em "Festival de Inverno")
+        nome_evento = descricao.split(': ')[-1] if ':' in descricao else descricao
+        
+        lista_eventos.append({
+            "nome_evento": nome_evento,
+            "data": data_mov[:10], # Pegando só o formato DD/MM/YYYY da string de data e hora
+            "resultado": "Lucro" if is_lucro else "Prejuízo",
+            "valor": valor_real
+        })
+        
+        total_eventos += valor_real
+        
+    return {
+        "lista": lista_eventos,
+        "total": total_eventos
+    }
+
+def dre_analitico_repasses(mes_referencia):
+    conexao, cursor = conectar_banco()
+    
+    # Dicionário central para somar os valores de cada professor
+    repasses_dict = {}
+    
+    # --- PARTE 1: Repasses vindos das Mensalidades e Particulares ---
+    # A matemática no SQL: (Valor Final - Taxa da Maquininha) * 75%
+    sql_mensalidades = '''
+        SELECT 
+            prof.nome,
+            SUM((p.valor_final - (p.valor_final * IFNULL(p.taxa_maquininha, 0.0))) * 0.75)
+        FROM pagamentos p
+        JOIN turmas t ON p.id_turma = t.id_turma
+        JOIN professores prof ON t.id_professor = prof.id_professor
+        WHERE p.mes_referencia = ? 
+          AND p.status = 'Pago' 
+          AND t.tipo_gestao = 'Parceiro'
+        GROUP BY prof.nome
+    '''
+    cursor.execute(sql_mensalidades, (mes_referencia,))
+    for r in cursor.fetchall():
+        prof_nome, valor = r
+        repasses_dict[prof_nome] = valor
+        
+    # --- PARTE 2: Repasses vindos das Aulas Avulsas ---
+    sql_avulsas = '''
+        SELECT 
+            p.nome,
+            SUM(a.repasse_prof)
+        FROM aulas_avulsas a
+        JOIN professores p ON a.id_professor = p.id_professor
+        WHERE a.data_aula LIKE '%' || ?
+        GROUP BY p.nome
+    '''
+    cursor.execute(sql_avulsas, (mes_referencia,))
+    for r in cursor.fetchall():
+        prof_nome, valor = r
+        
+        # Se o professor já recebeu repasse de mensalidade, somamos. Se não, criamos o registro.
+        if prof_nome not in repasses_dict:
+            repasses_dict[prof_nome] = 0.0
+        repasses_dict[prof_nome] += valor
+        
+    conexao.close()
+    
+    # Formatando a saída para o Jinja2 (HTML) ler em forma de lista
+    lista_repasses = []
+    total_repasses = 0.0
+    
+    for prof, valor in repasses_dict.items():
+        if valor > 0: # Só exibe se houver valor a receber
+            lista_repasses.append({
+                "professor": prof,
+                "valor": valor
+            })
+            total_repasses += valor
+            
+    # Deixando em ordem alfabética para ficar organizado na tela
+    lista_repasses = sorted(lista_repasses, key=lambda k: k['professor'])
+            
+    return {
+        "lista": lista_repasses,
+        "total": total_repasses
+    }
+
+def dre_analitico_taxas(mes_referencia):
+    conexao, cursor = conectar_banco()
+    
+    lista_taxas = []
+    total_taxas = 0.0
+    
+    # --- PARTE 1: Taxas cobradas nas Mensalidades e Particulares (Tabela pagamentos) ---
+    sql_pagamentos = '''
+        SELECT 
+            a.nome AS aluno,
+            p.data_pagamento,
+            (p.valor_final * p.taxa_maquininha) AS valor_taxa,
+            'Mensalidade/Particular' AS origem
+        FROM pagamentos p
+        JOIN alunos a ON p.id_aluno = a.id_aluno
+        WHERE p.mes_referencia = ? 
+          AND p.status = 'Pago' 
+          AND p.taxa_maquininha > 0
+    '''
+    cursor.execute(sql_pagamentos, (mes_referencia,))
+    for r in cursor.fetchall():
+        aluno, data_pagamento, valor_taxa, origem = r
+        lista_taxas.append({"aluno": aluno, "data": data_pagamento, "origem": origem, "valor": valor_taxa})
+        total_taxas += valor_taxa
+        
+    # --- PARTE 2: Taxas cobradas nas Aulas Avulsas (Tabela aulas_avulsas) ---
+    sql_avulsas = '''
+        SELECT 
+            aluno_nome AS aluno,
+            data_aula,
+            (valor_total_aula_avulsa * taxa_maquininha) AS valor_taxa,
+            'Aula Avulsa' AS origem
+        FROM aulas_avulsas
+        WHERE data_aula LIKE '%' || ?
+          AND taxa_maquininha > 0
+    '''
+    cursor.execute(sql_avulsas, (mes_referencia,))
+    for r in cursor.fetchall():
+        aluno, data_aula, valor_taxa, origem = r
+        lista_taxas.append({"aluno": aluno, "data": data_aula, "origem": origem, "valor": valor_taxa})
+        total_taxas += valor_taxa
+
+    # --- PARTE 3: Taxas cobradas nas Matrículas (Tabela inscricoes) - A NOSSA NOVIDADE! ---
+    sql_matriculas = '''
+        SELECT 
+            a.nome AS aluno,
+            i.data_inscricao,
+            (100.0 * i.taxa_maquininha) AS valor_taxa,
+            'Matrícula' AS origem
+        FROM inscricoes i
+        JOIN alunos a ON i.id_aluno = a.id_aluno
+        WHERE i.data_inscricao LIKE '%' || ?
+          AND i.status_pagamento_matricula = 'Pago'
+          AND i.taxa_maquininha > 0
+    '''
+    cursor.execute(sql_matriculas, (mes_referencia,))
+    for r in cursor.fetchall():
+        aluno, data_inscricao, valor_taxa, origem = r
+        lista_taxas.append({"aluno": aluno, "data": data_inscricao, "origem": origem, "valor": valor_taxa})
+        total_taxas += valor_taxa
+        
+    conexao.close()
+    
+    # Ordenamos a lista unificada pela data, garantindo uma linha do tempo impecável
+    lista_taxas = sorted(lista_taxas, key=lambda k: k['data'])
+    
+    return {
+        "lista": lista_taxas,
+        "total": total_taxas
+    }
+
+def dre_analitico_inadimplencia(mes_referencia):
+    conexao, cursor = conectar_banco()
+    
+    # Buscamos apenas os pagamentos pendentes do mês alvo para alunos ativos
+    sql = '''
+        SELECT 
+            a.nome AS aluno,
+            p.data_vencimento,
+            p.valor_final
+        FROM pagamentos p
+        JOIN alunos a ON p.id_aluno = a.id_aluno
+        WHERE p.mes_referencia = ? 
+          AND p.status = 'Pendente'
+          AND a.ativo = 1
+        ORDER BY p.data_vencimento ASC
+    '''
+    cursor.execute(sql, (mes_referencia,))
+    resultados = cursor.fetchall()
+    conexao.close()
+    
+    lista_inadimplencia = []
+    total_inadimplencia = 0.0
+    
+    hoje = datetime.now()
+    
+    for r in resultados:
+        aluno, data_venc_str, valor = r
+        
+        # Calculando os dias de atraso dinamicamente
+        dias_atraso = 0
+        try:
+            data_venc = datetime.strptime(data_venc_str, "%d/%m/%Y")
+            if hoje > data_venc:
+                dias_atraso = (hoje - data_venc).days
+        except Exception:
+            pass # Se houver algum erro de formatação na data, o atraso fica como 0
+            
+        lista_inadimplencia.append({
+            "aluno": aluno,
+            "data_vencimento": data_venc_str,
+            "dias_atraso": dias_atraso,
+            "valor": valor
+        })
+        
+        total_inadimplencia += valor
+        
+    return {
+        "lista": lista_inadimplencia,
+        "total": total_inadimplencia
+    }

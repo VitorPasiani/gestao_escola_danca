@@ -45,7 +45,6 @@ from operacoes import (
     faturar_aulas_selecionadas,
     listar_detalhes_inadimplencia,
     executar_limpeza_inadimplentes,
-    gerar_relatorio_dre,
     consultar_saldos,
     registrar_movimentacao_caixa,
     listar_movimentacoes_caixa,
@@ -67,7 +66,16 @@ from operacoes import (
     cadastrar_transacao_evento,
     deletar_transacao_evento,
     buscar_balanco_evento,
-    encerrar_evento_e_transferir_saldo
+    encerrar_evento_e_transferir_saldo,
+    dre_analitico_mensalidades,
+    dre_analitico_matriculas,
+    dre_analitico_avulsas,
+    dre_analitico_particulares_adhoc,
+    dre_analitico_despesas,
+    dre_analitico_eventos,
+    dre_analitico_repasses,
+    dre_analitico_taxas,
+    dre_analitico_inadimplencia
 )
 
 import sqlite3
@@ -648,12 +656,23 @@ def rota_dre_mensal():
     
     if request.method == 'POST':
         mes_referencia = request.form.get('mes_referencia')
-        despesas_fixas = float(request.form.get('despesas_fixas') or 0.0)
-        retencao_caixa = float(request.form.get('retencao_caixa') or 0.0)
         
-        relatorio = gerar_relatorio_dre(mes_referencia, despesas_fixas, retencao_caixa)
+        # Cada bloco é uma função separada
+        relatorio = {
+            "mensalidades": dre_analitico_mensalidades(mes_referencia),
+            "matriculas": dre_analitico_matriculas(mes_referencia),
+            "avulsas_particulares": {
+                "lista": dre_analitico_avulsas(mes_referencia)["lista"] + dre_analitico_particulares_adhoc(mes_referencia)["lista"],
+                "total": dre_analitico_avulsas(mes_referencia)["total"] + dre_analitico_particulares_adhoc(mes_referencia)["total"]
+            },
+            "despesas": dre_analitico_despesas(mes_referencia),
+            "eventos": dre_analitico_eventos(mes_referencia),
+            "repasses": dre_analitico_repasses(mes_referencia),
+            "taxas": dre_analitico_taxas(mes_referencia),
+            "inadimplencia": dre_analitico_inadimplencia(mes_referencia)
+        }
         
-    return render_template('dre_mensal.html', relatorio=relatorio)
+    return render_template('dre_mensal.html', relatorio=relatorio, mes=request.form.get('mes_referencia'))
 
 ### MENSALIDADES / FATURAS UNIFICADAS ###
 @app.route('/faturas')

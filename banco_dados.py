@@ -76,12 +76,13 @@ def inicializar_banco():
         id_turma INTEGER,
         data_inscricao TEXT,
         status_pagamento_matricula TEXT DEFAULT 'Pendente', -- 'Pago' ou 'Pendente'
+        taxa_maquininha REAL DEFAULT 0.0,
         status_academico TEXT DEFAULT 'Ativo', -- 'Ativo', 'Suspenso', 'Inativo'
         ativo INTEGER DEFAULT 1,
         FOREIGN KEY (id_aluno) REFERENCES alunos (id_aluno),
         FOREIGN KEY (id_turma) REFERENCES turmas (id_turma)
-    )
-''')
+        )
+    ''')
 
     # TABELA FREQUÊNCIA PARTICULARES
     cursor.execute('''
@@ -92,8 +93,8 @@ def inicializar_banco():
         valor_aula_momento REAL,
         faturado INTEGER DEFAULT 0,
         FOREIGN KEY (id_inscricao) REFERENCES inscricoes (id_inscricao)
-    )
-''')
+        )
+    ''')
 
 # TABELA PAGAMENTOS
     cursor.execute('''
